@@ -1,0 +1,13 @@
+# Dependencies for the hosted (Vercel) deployment. The scheduled scanner and
+# local development install gatewaydashboard/requirements.txt instead; this
+# file exists because Vercel's Python runtime looks for requirements.txt at the
+# repository root.
+#
+# Kept deliberately identical in version ranges to gatewaydashboard's file —
+# if you change one, change both.
+
+yfinance>=0.2.54,<0.3      # market data provider
+pandas>=2.2,<3
+numpy>=1.26,<3
+Flask>=3.0,<4              # the dashboard server
+requests>=2.31,<3          # Supabase REST calls (store.py)

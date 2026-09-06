@@ -114,7 +114,13 @@ FUND_CACHE_DIR = data.CACHE_PATH / "fundamentals"
 
 
 def _fund_cache_file(symbol: str) -> Path:
-    FUND_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    # Guarded for the same reason as data._write_cache: this runs on cache
+    # *reads* too, so an unguarded mkdir on a read-only filesystem took down
+    # every fundamentals lookup on the deployed app.
+    try:
+        FUND_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    except OSError:
+        pass
     clean = "".join(c for c in symbol if c.isalnum() or c in "._-")
     return FUND_CACHE_DIR / f"{clean}.pkl"
 

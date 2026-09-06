@@ -173,6 +173,44 @@ PORT = 8765
 
 
 # ---------------------------------------------------------------------------
+# Hosting / storage
+# ---------------------------------------------------------------------------
+# Serverless hosts (Vercel sets VERCEL=1) serve the deployment read-only —
+# only /tmp is writable, and /tmp does not survive between invocations. The
+# on-disk cache therefore moves to /tmp there: it still helps within a single
+# warm container, and it can never crash a request. Durable storage on a
+# serverless host is Supabase's job, not the filesystem's.
+import os as _os
+
+ON_SERVERLESS = bool(_os.environ.get("VERCEL") or _os.environ.get("AWS_LAMBDA_FUNCTION_NAME"))
+if ON_SERVERLESS:
+    CACHE_DIR = "/tmp/aaroquant-cache"
+
+# Supabase holds scan runs, results and the OHLCV/fundamentals caches, so the
+# hosted dashboard reads a finished scan out of Postgres in milliseconds
+# instead of re-running a multi-minute scan inside a request that would time
+# out. Both values come from the environment — never commit a key.
+#
+#   SUPABASE_URL                 https://<project-ref>.supabase.co
+#   SUPABASE_SERVICE_ROLE_KEY    server-side only; bypasses row-level security
+#
+# With neither set, the app runs exactly as before: scans happen live and
+# nothing is persisted. Storage is an enhancement, not a dependency.
+SUPABASE_URL = _os.environ.get("SUPABASE_URL", "").strip().rstrip("/")
+SUPABASE_SERVICE_ROLE_KEY = _os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "").strip()
+SUPABASE_ENABLED = bool(SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY)
+
+# How stale a stored scan may be before the UI is told to treat it as old.
+STORED_SCAN_STALE_HOURS = 24.0   # USER  a daily EOD scanner; older than a day
+                                  #       means the scheduled job did not run
+
+# Live single-symbol lookups still run inside a request (one symbol fits well
+# inside a serverless time budget). A full universe scan never does.
+LIVE_SCAN_MAX_SYMBOLS = 5        # USER  refuse a live multi-symbol scan above
+                                  #       this on a serverless host
+
+
+# ---------------------------------------------------------------------------
 # Provenance table
 # ---------------------------------------------------------------------------
 # Rather than maintain a second copy of the SOURCE / USER tags above (which

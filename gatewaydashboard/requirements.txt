@@ -10,3 +10,4 @@ yfinance>=0.2.54,<0.3      # market data provider (github.com/ranaroussi/yfinanc
 pandas>=2.2,<3
 numpy>=1.26,<3
 Flask>=3.0,<4              # local dashboard server
+requests>=2.31,<3          # Supabase REST calls (store.py); also a yfinance dep

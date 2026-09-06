@@ -112,8 +112,12 @@ def _read_cache(symbol: str, ignore_ttl: bool = False) -> pd.DataFrame | None:
 
 
 def _write_cache(symbol: str, df: pd.DataFrame) -> None:
-    CACHE_PATH.mkdir(parents=True, exist_ok=True)
+    # Both the mkdir and the write have to be inside the guard. On a
+    # read-only filesystem (Vercel serves the deployment read-only; only
+    # /tmp is writable) mkdir raises OSError, and an unguarded one here used
+    # to turn every successful download into a 500 on the deployed app.
     try:
+        CACHE_PATH.mkdir(parents=True, exist_ok=True)
         df.to_csv(_cache_file(symbol))
     except OSError:
         pass        # a cache write failure must never fail a scan

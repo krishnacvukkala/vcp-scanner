@@ -1,0 +1,65 @@
+name: Scheduled VCP scan
+
+# Runs the full scanner and stores the result in Supabase. The hosted
+# dashboard only ever reads what this workflow writes, so if this stops
+# running the dashboard will say its data is stale rather than show
+# yesterday's levels as if they were today's.
+#
+# Required repository secrets (Settings -> Secrets and variables -> Actions):
+#   SUPABASE_URL                https://<project-ref>.supabase.co
+#   SUPABASE_SERVICE_ROLE_KEY   the service_role key, NOT the anon key
+
+on:
+  schedule:
+    # Times are UTC. NSE closes 15:30 IST = 10:00 UTC, so 10:45 UTC gives
+    # Yahoo time to settle the closing bar.
+    - cron: "45 10 * * 1-5"
+    # US close is 16:00 ET = 21:00 UTC (20:00 UTC during DST). 21:45 UTC
+    # covers the global names in the catalog.
+    - cron: "45 21 * * 1-5"
+  workflow_dispatch:
+    inputs:
+      limit:
+        description: "Scan only the first N symbols (0 = whole universe)"
+        required: false
+        default: "0"
+      fundamentals:
+        description: "Run the fundamentals pass"
+        type: boolean
+        required: false
+        default: true
+
+concurrency:
+  group: vcp-scan
+  cancel-in-progress: false
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: gatewaydashboard/requirements.txt
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r gatewaydashboard/requirements.txt
+          pip install requests
+
+      - name: Run scan and store results
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          SCAN_SOURCE: github-actions
+        run: |
+          python -m gatewaydashboard.jobs.run_scan \
+            --source github-actions \
+            --limit "${{ github.event.inputs.limit || 0 }}" \
+            ${{ github.event.inputs.fundamentals == 'false' && '--no-fundamentals' || '' }}

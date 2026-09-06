@@ -34,6 +34,7 @@ import config
 import data
 import market_data
 import scanner
+import store
 import vcp_core
 
 
@@ -103,6 +104,19 @@ def index():
 
 @app.get("/api/scan")
 def api_scan():
+    """Serve a scan.
+
+    Where the answer comes from depends on what is actually possible:
+
+    1. A short explicit symbol list is always scanned live — one or a few
+       symbols finish well inside any request budget.
+    2. Otherwise, if Supabase holds a completed scan, that is served. It is
+       the same payload shape a live scan returns, plus a `stored` block
+       saying how old it is, so the UI can be honest about freshness.
+    3. Otherwise the universe is scanned live — correct on your own machine,
+       and refused on a serverless host, where it would time out and return
+       an error page that looks like a bug rather than a limit.
+    """
     global _last_scan
     symbols = request.args.get("symbols")
     symbols = [s for s in symbols.split(",") if s.strip()] if symbols else None
@@ -110,9 +124,40 @@ def api_scan():
     country = request.args.get("country", "ALL")
     exchange = request.args.get("exchange", "ALL")
     asset_class = request.args.get("assetClass", "ALL")
+    unfiltered = not symbols and country == "ALL" and exchange == "ALL" and asset_class == "ALL"
 
-    if _flag("cached") and _last_scan and not symbols and country == "ALL" and exchange == "ALL" and asset_class == "ALL":
+    # 1. A handful of named symbols: scan them live, here and now.
+    live_symbol_request = bool(symbols) and len(symbols) <= config.LIVE_SCAN_MAX_SYMBOLS
+
+    # 2. Stored scan.
+    if not live_symbol_request and store.enabled() and not _flag("force"):
+        try:
+            stored = store.latest_scan(country, exchange, asset_class)
+        except store.StoreError as exc:
+            app.logger.warning("Supabase read failed: %s", exc)
+            stored = None
+        if stored:
+            return jsonify(stored)
+
+    if _flag("cached") and _last_scan and unfiltered:
         return jsonify(_last_scan)
+
+    # 3. Live scan of a universe — only where that can actually finish.
+    if not live_symbol_request and config.ON_SERVERLESS:
+        return jsonify({
+            "error": "NO_STORED_SCAN",
+            "message": "This hosted dashboard serves scans from the database; "
+                       "it does not scan the universe inside a web request, "
+                       "because that cannot finish inside the time limit. No "
+                       "completed scan is stored yet.",
+            "how_to_fix": "Run the 'Scheduled VCP scan' workflow in GitHub "
+                          "Actions (Actions -> Scheduled VCP scan -> Run "
+                          "workflow), or run "
+                          "`python -m gatewaydashboard.jobs.run_scan` locally "
+                          "with the Supabase environment variables set.",
+            "supabase": store.health(),
+            "results": [], "counts": {}, "failures": [],
+        }), 503
 
     if not _scan_lock.acquire(blocking=False):
         if _last_scan:
@@ -130,11 +175,35 @@ def api_scan():
             force=_flag("force"),
             with_fundamentals=_flag("fundamentals", config.FUNDAMENTALS_ENABLED),
         )
-        if not symbols and country == "ALL" and exchange == "ALL" and asset_class == "ALL":
+        if unfiltered:
             _last_scan = result
         return jsonify(result)
     finally:
         _scan_lock.release()
+
+
+@app.get("/api/health")
+def api_health():
+    """Says out loud whether storage is wired up. Worth checking first when
+    the dashboard looks empty."""
+    return jsonify({
+        "ok": True,
+        "serverless": config.ON_SERVERLESS,
+        "cache_dir": str(data.CACHE_PATH),
+        "supabase": store.health(),
+    })
+
+
+@app.get("/api/scan/history")
+def api_scan_history():
+    """Recent stored runs — how the UI shows that scans are still happening."""
+    if not store.enabled():
+        return jsonify({"available": False,
+                        "reason": "Supabase is not configured."})
+    try:
+        return jsonify({"available": True, "runs": store.recent_runs(20)})
+    except store.StoreError as exc:
+        return jsonify({"available": False, "reason": str(exc)}), 502
 
 
 import instruments
@@ -165,20 +234,46 @@ def api_market_data_search():
 
 @app.get("/api/market-data/ohlc")
 def api_market_data_ohlc():
+    """Chart series. Reads the Supabase cache first — the scheduled job stores
+    this exact payload for every candidate, so opening a chart is a database
+    read rather than a Yahoo round trip. Falls through to a live fetch for
+    anything not cached, and writes what it fetched back."""
     symbol = request.args.get("symbol", "RELIANCE")
     exchange = request.args.get("exchange", "NSE")
     timeframe = request.args.get("timeframe", "1D")
     country = request.args.get("country", "")
     asset_class = request.args.get("assetClass", "EQUITY")
     force = _flag("force")
-    return jsonify(market_data.MarketDataProvider.get_historical_ohlc(
+
+    if not force and store.enabled():
+        try:
+            cached = store.get_ohlcv(symbol, timeframe)
+        except store.StoreError as exc:
+            app.logger.warning("OHLC cache read failed: %s", exc)
+            cached = None
+        if cached:
+            cached = dict(cached)
+            cached["cached"] = True
+            cached["cache_source"] = "supabase"
+            return jsonify(cached)
+
+    payload = market_data.MarketDataProvider.get_historical_ohlc(
         symbol=symbol,
         exchange=exchange,
         timeframe=timeframe,
         country=country,
         asset_class=asset_class,
-        force=force
-    ))
+        force=force,
+    )
+
+    if store.enabled() and payload.get("candles"):
+        try:
+            store.put_ohlcv(symbol, payload, timeframe=timeframe,
+                            exchange=exchange)
+        except store.StoreError as exc:
+            app.logger.warning("OHLC cache write failed: %s", exc)
+
+    return jsonify(payload)
 
 
 @app.get("/api/stock/<symbol>")
