@@ -227,57 +227,76 @@ def _enrich_record(record: dict) -> dict:
     plan = record.get("plan") or {}
     pivot = (plan.get("pivot") or {}).get("value")
     stop = (plan.get("stop") or {}).get("value")
-    close = (record.get("close") or {}).get("value") or pivot or 100.0
+    close = (record.get("close") or {}).get("value")
 
     curr_sym = "₹" if record["currency"] == "INR" else ("$" if record["currency"] == "USD" else ("€" if record["currency"] == "EUR" else ("£" if record["currency"] == "GBP" else ("¥" if record["currency"] == "JPY" else "$"))))
 
-    if pivot and stop and pivot > stop:
+    # A stock with no VCP structure must not get a trade plan.
+    # Never invent fallback numbers (e.g. pivot = close, stop = close * 0.95).
+    if pivot is not None and stop is not None and pivot > stop:
         risk_per_share = pivot - stop
-        tp1 = pivot + (2.0 * risk_per_share)
-        tp2 = pivot + (3.0 * risk_per_share)
-        rr_ratio = 2.4
+        tp1 = round(pivot + (2.0 * risk_per_share), 2)
+        tp2 = round(pivot + (3.0 * risk_per_share), 2)
+        rr_ratio = round((tp1 - pivot) / risk_per_share, 2)
+        rr_ratio_fmt = f"{rr_ratio:g} : 1"
         pot_risk = round(100 * risk_per_share, 2)
         pot_gain = round(100 * (tp2 - pivot), 2)
+        trade_plan_available = True
+        plan_reason = None
     else:
-        pivot = close
-        stop = round(close * 0.95, 2)
-        tp1 = round(close * 1.10, 2)
-        tp2 = round(close * 1.15, 2)
-        rr_ratio = 2.0
-        pot_risk = round(100 * (close - stop), 2)
-        pot_gain = round(100 * (tp2 - close), 2)
+        tp1 = None
+        tp2 = None
+        rr_ratio = None
+        rr_ratio_fmt = "N/A"
+        pot_risk = None
+        pot_gain = None
+        trade_plan_available = False
+        plan_reason = plan.get("reason") or "No valid VCP contraction structure to price"
 
     verdict = record.get("verdict", "no_setup")
     status = record.get("status", "no_vcp")
 
     if status == "target2_hit":
         signal = "TARGET 2 HIT"
-        confidence = 100
     elif status == "target1_hit":
         signal = "TARGET 1 HIT"
-        confidence = 92
+    elif status == "broken" or verdict == "stop_loss_hit":
+        signal = "STOP LOSS HIT"
     elif verdict == "valid_setup":
         signal = "Strong Buy"
-        confidence = 85
     elif verdict == "watch":
         signal = "Watch (Near Pivot)"
-        confidence = 78
     elif verdict == "structure_only":
         signal = "Structure Only"
-        confidence = 65
     else:
-        signal = "Neutral"
-        confidence = 50
+        signal = "No Setup"
 
-    record["tp1"] = round(tp1, 2)
-    record["tp2"] = round(tp2, 2)
+    record["tp1"] = tp1
+    record["tp2"] = tp2
     record["ai_signal"] = signal
-    record["confidence_score"] = confidence
-    record["win_probability"] = 73
-    record["rr_ratio_fmt"] = f"{rr_ratio:.1f} : 1"
+    # win_probability and confidence_score are not modeled by the VCP strategy engine (§25).
+    # Never report invented constants.
+    record["confidence_score"] = None
+    record["win_probability"] = None
+    record["rr_ratio"] = rr_ratio
+    record["rr_ratio_fmt"] = rr_ratio_fmt
     record["potential_risk_val"] = pot_risk
     record["potential_gain_val"] = pot_gain
-    record["ai_take"] = f"{record.get('symbol', '')} ({record['exchange']}) trade offers a favorable {rr_ratio:.1f}:1 risk:reward ratio with breakout potential above {curr_sym}{pivot:.2f}."
+    record["trade_plan_available"] = trade_plan_available
+    if plan_reason:
+        record["trade_plan_unavailable_reason"] = plan_reason
+
+    if trade_plan_available:
+        record["ai_take"] = (
+            f"{record.get('symbol', '')} ({record['exchange']}) trade offers a "
+            f"{rr_ratio:g}:1 risk:reward ratio (TP1) with breakout pivot at {curr_sym}{pivot:.2f} "
+            f"and stop loss at {curr_sym}{stop:.2f}."
+        )
+    else:
+        record["ai_take"] = (
+            f"No trade plan available for {record.get('symbol', '')} "
+            f"({record.get('exchange', '')}): {plan_reason}."
+        )
     return record
 
 

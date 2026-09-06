@@ -575,9 +575,9 @@ table.data-table tr:hover { background: #f8fafc; cursor: pointer; }
       </div>
 
       <div class="header-right">
-        <div class="status-pill">
-          <span style="width:6px;height:6px;background:#10b981;border-radius:50%"></span>
-          Global Market Provider
+        <div class="status-pill" id="freshness-pill" onclick="openScanHistoryModal()" style="cursor:pointer" title="Click to inspect scan run history & freshness">
+          <span id="freshness-dot" style="width:6px;height:6px;background:#10b981;border-radius:50%"></span>
+          <span id="freshness-text">Live Scan</span>
         </div>
         <button id="btn-run-scan" onclick="triggerScan(true)" style="background:var(--accent-blue);color:white;border:none;padding:8px 16px;border-radius:8px;font-weight:600;cursor:pointer;font-size:12px;display:flex;align-items:center;gap:6px;box-shadow:0 2px 6px rgba(37,99,235,0.25);transition:all 0.2s">
           <span id="scan-btn-icon">⚡</span> <span id="scan-btn-text">Run Scan Now</span>
@@ -637,32 +637,35 @@ table.data-table tr:hover { background: #f8fafc; cursor: pointer; }
       <!-- VIEW 1: DASHBOARD OVERVIEW -->
       <div id="view-dashboard" class="view-panel active">
         
+        <!-- Stale / Offline Scan Warning Banner -->
+        <div id="stale-scan-banner" style="display:none;background:#fef2f2;border:1px solid #fecaca;color:#991b1b;padding:12px 16px;border-radius:8px;margin-bottom:16px;font-size:12px;display:none;align-items:center;justify-content:space-between"></div>
+
         <!-- KPI Summary Stats Header -->
         <div class="stats-grid">
           <div class="stat-card">
             <div class="stat-title">Markets Scanned</div>
-            <div class="stat-val" id="stat-scanned">84</div>
-            <div class="stat-sub"><span>NSE Equities Universe</span></div>
+            <div class="stat-val" id="stat-scanned">—</div>
+            <div class="stat-sub"><span id="stat-universe-sub">Equities Universe</span></div>
           </div>
           <div class="stat-card">
             <div class="stat-title">Potential Setups</div>
-            <div class="stat-val" id="stat-setups" style="color:var(--accent-green)">2</div>
+            <div class="stat-val" id="stat-setups" style="color:var(--accent-green)">—</div>
             <div class="stat-sub"><span style="color:var(--accent-green)">Stage 2 Confirmed</span></div>
           </div>
           <div class="stat-card">
             <div class="stat-title">Near Pivot / Watch</div>
-            <div class="stat-val" id="stat-watch" style="color:var(--accent-amber)">4</div>
+            <div class="stat-val" id="stat-watch" style="color:var(--accent-amber)">—</div>
             <div class="stat-sub"><span style="color:var(--accent-amber)">Tight Contractions</span></div>
           </div>
-          <div class="stat-card">
-            <div class="stat-title">Win Rate (Backtest)</div>
-            <div class="stat-val">73%</div>
-            <div class="stat-sub"><span>Minervini SEPA</span></div>
+          <div class="stat-card" onclick="openScanHistoryModal()" style="cursor:pointer" title="Click to view recent scan history">
+            <div class="stat-title">Data Freshness</div>
+            <div class="stat-val" id="stat-freshness" style="font-size:18px">Live Scan</div>
+            <div class="stat-sub"><span id="stat-freshness-sub" style="color:var(--accent-blue)">Click to view history</span></div>
           </div>
           <div class="stat-card">
-            <div class="stat-title">Avg. Return</div>
-            <div class="stat-val" style="color:var(--accent-green)">+18.24%</div>
-            <div class="stat-sub"><span>Per Winner</span></div>
+            <div class="stat-title">Min. Reward : Risk</div>
+            <div class="stat-val" id="stat-min-rr" style="color:var(--accent-green)">2.0 : 1</div>
+            <div class="stat-sub"><span>Minervini Rule (§15, p38)</span></div>
           </div>
         </div>
 
@@ -720,27 +723,27 @@ table.data-table tr:hover { background: #f8fafc; cursor: pointer; }
               </div>
             </div>
 
-            <!-- Latest AI Trade Plan -->
+            <!-- Latest Trade Plan -->
             <div class="card-box" id="dash-trade-plan-card">
               <div class="section-title">
-                <span>📄 Latest AI Trade Plan</span>
-                <span class="badge badge-success">Long Setup</span>
+                <span>📄 Latest Trade Plan</span>
+                <span class="badge badge-muted" id="dash-tp-badge">No Plan</span>
               </div>
               <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
-                <div class="param-row"><span class="param-label">Entry Price</span><span class="param-val" id="tp-entry">₹2,250.00</span></div>
-                <div class="param-row"><span class="param-label">Stop Loss</span><span class="param-val stop" id="tp-stop">₹2,097.00</span></div>
-                <div class="param-row"><span class="param-label">Take Profit 1</span><span class="param-val tp1" id="tp-tp1">₹2,556.00</span></div>
-                <div class="param-row"><span class="param-label">Take Profit 2</span><span class="param-val tp2" id="tp-tp2">₹2,709.00</span></div>
-                <div class="param-row"><span class="param-label">Risk:Reward</span><span class="param-val" id="tp-rr">2.4 : 1</span></div>
+                <div class="param-row"><span class="param-label">Entry Price</span><span class="param-val" id="tp-entry">N/A</span></div>
+                <div class="param-row"><span class="param-label">Stop Loss</span><span class="param-val stop" id="tp-stop">N/A</span></div>
+                <div class="param-row"><span class="param-label">Take Profit 1</span><span class="param-val tp1" id="tp-tp1">N/A</span></div>
+                <div class="param-row"><span class="param-label">Take Profit 2</span><span class="param-val tp2" id="tp-tp2">N/A</span></div>
+                <div class="param-row"><span class="param-label">Risk:Reward</span><span class="param-val" id="tp-rr">N/A</span></div>
                 <div class="param-row"><span class="param-label">Account Risk</span><span class="param-val">1.0%</span></div>
               </div>
               <div>
                 <div style="display:flex;justify-content:space-between;font-size:12px;font-weight:600;margin-bottom:4px">
                   <span>Confidence Score</span>
-                  <span id="tp-conf-score" style="color:var(--accent-green)">78%</span>
+                  <span id="tp-conf-score" style="color:var(--text-muted)">N/A</span>
                 </div>
                 <div style="width:100%;height:8px;background:var(--border-card);border-radius:4px;overflow:hidden">
-                  <div id="tp-conf-bar" style="width:78%;height:100%;background:linear-gradient(90deg, #10b981, #06b6d4);border-radius:4px"></div>
+                  <div id="tp-conf-bar" style="width:0%;height:100%;background:linear-gradient(90deg, #10b981, #06b6d4);border-radius:4px"></div>
                 </div>
               </div>
             </div>
@@ -1949,12 +1952,146 @@ function renderSettingsTable(data) {
   });
 }
 
+function updateFreshnessUI() {
+  if (!scanData) return;
+  const dot = document.getElementById("freshness-dot");
+  const text = document.getElementById("freshness-text");
+  const banner = document.getElementById("stale-scan-banner");
+  const statFreshness = document.getElementById("stat-freshness");
+  const statFreshnessSub = document.getElementById("stat-freshness-sub");
+
+  if (scanData.is_stored && scanData.stored) {
+    const s = scanData.stored;
+    const ageH = s.age_hours;
+    const ageStr = ageH != null ? (ageH < 1 ? `${Math.round(ageH * 60)}m ago` : `${ageH.toFixed(1)}h ago`) : "Stored";
+    const srcStr = s.source ? ` (${s.source})` : "";
+
+    if (s.stale) {
+      if (dot) dot.style.background = "#ef4444";
+      if (text) text.textContent = `⚠️ Stale (${ageStr})`;
+      if (banner) {
+        banner.style.display = "flex";
+        banner.innerHTML = `<div>⚠️ <strong>Data Freshness Warning:</strong> Displaying a stored scan from <strong>${ageStr}</strong>${srcStr}. Scheduled background scans may be delayed or failing.</div> <button onclick="triggerScan(true)" style="background:#dc2626;color:white;border:none;padding:5px 10px;border-radius:6px;font-size:11px;font-weight:700;margin-left:12px;cursor:pointer;white-space:nowrap">Scan Live Now</button>`;
+      }
+    } else {
+      if (dot) dot.style.background = "#3b82f6";
+      if (text) text.textContent = `💾 Stored (${ageStr})`;
+      if (banner) banner.style.display = "none";
+    }
+    if (statFreshness) statFreshness.textContent = ageStr;
+    if (statFreshnessSub) statFreshnessSub.textContent = `Stored via ${s.source || 'scheduler'}`;
+  } else {
+    if (dot) dot.style.background = "#10b981";
+    const asOfStr = scanData.as_of ? scanData.as_of.split(' ')[0] : 'Just now';
+    if (text) text.textContent = `🟢 Live (${asOfStr})`;
+    if (banner) banner.style.display = "none";
+    if (statFreshness) statFreshness.textContent = "Live Scan";
+    if (statFreshnessSub) statFreshnessSub.textContent = asOfStr;
+  }
+}
+
+function openScanHistoryModal() {
+  let modal = document.getElementById("scan-history-modal");
+  if (!modal) {
+    modal = document.createElement("div");
+    modal.id = "scan-history-modal";
+    modal.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.65);display:flex;align-items:center;justify-content:center;z-index:9999;backdrop-filter:blur(4px)";
+    modal.innerHTML = `
+      <div style="background:var(--bg-card);border:1px solid var(--border-card);border-radius:14px;width:90%;max-width:720px;max-height:85vh;display:flex;flex-direction:column;box-shadow:0 20px 40px rgba(0,0,0,0.4)">
+        <div style="padding:16px 20px;border-bottom:1px solid var(--border-card);display:flex;align-items:center;justify-content:space-between">
+          <div style="display:flex;align-items:center;gap:8px">
+            <span style="font-size:18px">🕒</span>
+            <span style="font-family:var(--font-heading);font-weight:700;font-size:16px">Scan Freshness & Run History</span>
+          </div>
+          <button onclick="closeScanHistoryModal()" style="background:none;border:none;font-size:22px;color:var(--text-muted);cursor:pointer;line-height:1">&times;</button>
+        </div>
+        <div id="scan-history-body" style="padding:20px;overflow-y:auto;flex:1">
+          <div style="text-align:center;color:var(--text-muted);padding:24px">Loading scan history...</div>
+        </div>
+      </div>
+    `;
+    modal.onclick = (e) => { if (e.target === modal) closeScanHistoryModal(); };
+    document.body.appendChild(modal);
+  }
+  modal.style.display = "flex";
+  fetchScanHistory();
+}
+
+function closeScanHistoryModal() {
+  const modal = document.getElementById("scan-history-modal");
+  if (modal) modal.style.display = "none";
+}
+
+function fetchScanHistory() {
+  const body = document.getElementById("scan-history-body");
+  if (!body) return;
+  fetch("/api/scan/history")
+    .then(r => r.json())
+    .then(data => {
+      if (!data.available) {
+        body.innerHTML = `
+          <div style="padding:28px 16px;text-align:center;color:var(--text-muted)">
+            <div style="font-size:32px;margin-bottom:10px">📦</div>
+            <div style="font-weight:700;font-size:14px;color:var(--text-primary);margin-bottom:6px">No Stored Scans Available</div>
+            <div style="font-size:12px;max-width:440px;margin:0 auto;line-height:1.5">${data.reason || "Supabase persistence is not configured."}</div>
+            <div style="font-size:11px;margin-top:14px;color:var(--text-secondary)">Scans execute live and are processed on demand.</div>
+          </div>
+        `;
+        return;
+      }
+      const runs = data.runs || [];
+      if (runs.length === 0) {
+        body.innerHTML = `<div style="text-align:center;padding:28px;color:var(--text-muted)">No past scan runs recorded yet in the database.</div>`;
+        return;
+      }
+      let html = `
+        <table style="width:100%;border-collapse:collapse;font-size:12px">
+          <thead>
+            <tr style="border-bottom:1px solid var(--border-card);color:var(--text-muted);text-align:left">
+              <th style="padding:8px">Started At</th>
+              <th style="padding:8px">Source</th>
+              <th style="padding:8px">Duration</th>
+              <th style="padding:8px">Scanned</th>
+              <th style="padding:8px">Verdicts</th>
+            </tr>
+          </thead>
+          <tbody>
+      `;
+      runs.forEach(r => {
+        const timeStr = r.started_at ? new Date(r.started_at).toLocaleString() : "N/A";
+        const dur = r.elapsed_seconds ? `${r.elapsed_seconds.toFixed(1)}s` : "—";
+        const v = r.verdicts || {};
+        const vSummary = `<span style="color:#16a34a;font-weight:600">● ${v.valid_setup || 0} valid</span> &bull; <span style="color:#d97706">● ${v.watch || 0} watch</span> &bull; <span style="color:#2563eb">● ${v.structure_only || 0} base</span>`;
+        html += `
+          <tr style="border-bottom:1px solid var(--border-card-subtle)">
+            <td style="padding:10px 8px;font-family:var(--font-mono)">${timeStr}</td>
+            <td style="padding:10px 8px"><span class="badge badge-blue">${r.source || 'manual'}</span></td>
+            <td style="padding:10px 8px;font-family:var(--font-mono)">${dur}</td>
+            <td style="padding:10px 8px;font-weight:700">${r.scanned || r.universe_size || '—'}</td>
+            <td style="padding:10px 8px;font-size:11px">${vSummary}</td>
+          </tr>
+        `;
+      });
+      html += `</tbody></table>`;
+      body.innerHTML = html;
+    })
+    .catch(err => {
+      body.innerHTML = `<div style="color:var(--accent-red);padding:24px;text-align:center">Error loading history: ${err.message}</div>`;
+    });
+}
+
 function renderDashboard() {
   if (!scanData) return;
   
-  document.getElementById("stat-scanned").textContent = scanData.scanned || 84;
-  document.getElementById("stat-setups").textContent = (scanData.counts && scanData.counts.valid_setup) || 2;
-  document.getElementById("stat-watch").textContent = (scanData.counts && scanData.counts.watch) || 4;
+  const scannedCnt = scanData.scanned != null ? scanData.scanned : (scanData.results ? scanData.results.length : 0);
+  const setupsCnt = (scanData.counts && scanData.counts.valid_setup != null) ? scanData.counts.valid_setup : 0;
+  const watchCnt = (scanData.counts && scanData.counts.watch != null) ? scanData.counts.watch : 0;
+
+  document.getElementById("stat-scanned").textContent = scannedCnt;
+  document.getElementById("stat-setups").textContent = setupsCnt;
+  document.getElementById("stat-watch").textContent = watchCnt;
+
+  updateFreshnessUI();
 
   const results = scanData.results || [];
 
@@ -1968,8 +2105,17 @@ function renderDashboard() {
     const curr = r.currency || "INR";
     const close = (r.close && r.close.value) ? formatCurrency(r.close.value, curr) : "N/A";
     const waves = (r.vcp && r.vcp.contractions) ? r.vcp.contractions.map(c => `${c.depth_pct.toFixed(1)}%`).join(" → ") : "N/A";
-    const signal = r.ai_signal || (r.verdict === "valid_setup" ? "Strong Buy" : "Watch");
-    const badgeClass = signal.includes("Buy") ? "badge-success" : "badge-warning";
+    const signal = r.ai_signal || (r.verdict === "valid_setup" ? "Strong Buy" : (r.verdict === "watch" ? "Watch (Near Pivot)" : "No Setup"));
+    let badgeClass = "badge-muted";
+    if (signal.includes("Buy") || signal === "Valid Setup (Buy Trigger)") {
+      badgeClass = "badge-success";
+    } else if (signal.includes("HIT")) {
+      badgeClass = signal.includes("STOP") ? "badge-danger" : "badge-purple";
+    } else if (signal.includes("Watch")) {
+      badgeClass = "badge-warning";
+    } else if (signal.includes("Structure")) {
+      badgeClass = "badge-blue";
+    }
 
     tr.innerHTML = `
       <td>
@@ -2190,9 +2336,9 @@ function renderTradesTable() {
     }
 
     // Entry / Stop / TP values from plan (show in hover title)
-    const entryFmt = plan.entry && plan.entry.value ? formatCurrency(plan.entry.value, curr) : "";
+    const entryFmt = plan.pivot && plan.pivot.value ? formatCurrency(plan.pivot.value, curr) : (plan.entry && plan.entry.value ? formatCurrency(plan.entry.value, curr) : "");
     const stopFmt  = plan.stop  && plan.stop.value  ? formatCurrency(plan.stop.value,  curr) : "";
-    const tp1Fmt   = plan.target1 && plan.target1.value ? formatCurrency(plan.target1.value, curr) : "";
+    const tp1Fmt   = r.tp1 != null ? formatCurrency(r.tp1, curr) : (plan.target1 && plan.target1.value ? formatCurrency(plan.target1.value, curr) : "");
 
     // Extra info column: show entry/stop/tp for active; show exit info for completed/stopped
     let extraInfo = "";
@@ -2244,18 +2390,57 @@ function updateStockUI() {
   const fund = d.fundamentals || {};
   const res = fund.research_summary || {};
   const curr = d.currency || "INR";
-  const closeVal = d.close ? d.close.value : 0;
-  const pivotVal = (plan.pivot && plan.pivot.value) ? plan.pivot.value : closeVal;
-  const stopVal = (plan.stop && plan.stop.value) ? plan.stop.value : closeVal * 0.95;
-  const tp1Val = d.tp1 || (pivotVal + 2 * (pivotVal - stopVal));
-  const tp2Val = d.tp2 || (pivotVal + 3 * (pivotVal - stopVal));
+  const closeVal = d.close ? d.close.value : null;
+  const pivotVal = (plan.pivot && plan.pivot.value != null) ? plan.pivot.value : null;
+  const stopVal = (plan.stop && plan.stop.value != null) ? plan.stop.value : null;
+  const hasValidPlan = Boolean(pivotVal != null && stopVal != null && pivotVal > stopVal);
+  const tp1Val = d.tp1 != null ? d.tp1 : (hasValidPlan ? pivotVal + 2 * (pivotVal - stopVal) : null);
+  const tp2Val = d.tp2 != null ? d.tp2 : (hasValidPlan ? pivotVal + 3 * (pivotVal - stopVal) : null);
+  const rrFmt = (d.rr_ratio_fmt && d.rr_ratio_fmt !== "N/A") ? d.rr_ratio_fmt : (hasValidPlan && d.rr_ratio ? `${d.rr_ratio} : 1` : "N/A");
 
   // Dashboard Trade Plan Card
-  document.getElementById("tp-entry").textContent = formatCurrency(pivotVal, curr);
-  document.getElementById("tp-stop").textContent = formatCurrency(stopVal, curr);
-  document.getElementById("tp-tp1").textContent = formatCurrency(tp1Val, curr);
-  document.getElementById("tp-tp2").textContent = formatCurrency(tp2Val, curr);
-  document.getElementById("tp-rr").textContent = d.rr_ratio_fmt || "2.4 : 1";
+  document.getElementById("tp-entry").textContent = pivotVal != null ? formatCurrency(pivotVal, curr) : "N/A";
+  document.getElementById("tp-stop").textContent = stopVal != null ? formatCurrency(stopVal, curr) : "N/A";
+  document.getElementById("tp-tp1").textContent = tp1Val != null ? formatCurrency(tp1Val, curr) : "N/A";
+  document.getElementById("tp-tp2").textContent = tp2Val != null ? formatCurrency(tp2Val, curr) : "N/A";
+  document.getElementById("tp-rr").textContent = rrFmt;
+
+  // Confidence Score & Bar in Trade Plan Card
+  const confEl = document.getElementById("tp-conf-score");
+  const barEl = document.getElementById("tp-conf-bar");
+  if (confEl && barEl) {
+    if (d.confidence_score != null) {
+      confEl.textContent = `${d.confidence_score}%`;
+      confEl.style.color = "var(--accent-green)";
+      barEl.style.width = `${d.confidence_score}%`;
+    } else {
+      confEl.textContent = "N/A";
+      confEl.style.color = "var(--text-muted)";
+      confEl.title = "Confidence score is not modeled by the VCP engine";
+      barEl.style.width = "0%";
+    }
+  }
+
+  // Card badge
+  const tpBadgeEl = document.getElementById("dash-tp-badge");
+  if (tpBadgeEl) {
+    if (d.status === "target2_hit" || d.verdict === "target_hit") {
+      tpBadgeEl.textContent = "Target 2 Hit";
+      tpBadgeEl.className = "badge badge-purple";
+    } else if (d.status === "target1_hit") {
+      tpBadgeEl.textContent = "Target 1 Hit";
+      tpBadgeEl.className = "badge badge-success";
+    } else if (isStopLossHit(d)) {
+      tpBadgeEl.textContent = "Stop Loss Hit";
+      tpBadgeEl.className = "badge badge-danger";
+    } else if (hasValidPlan) {
+      tpBadgeEl.textContent = "Long Setup";
+      tpBadgeEl.className = "badge badge-success";
+    } else {
+      tpBadgeEl.textContent = "No Plan";
+      tpBadgeEl.className = "badge badge-muted";
+    }
+  }
 
   // Risk Manager Parameters & Target Status
   let verdictText = d.verdict === "valid_setup" ? "VALID SETUP (BUY TRIGGER)" : (d.verdict || "NO SETUP").toUpperCase();
@@ -2288,7 +2473,7 @@ function updateStockUI() {
   }
 
   const rmCurrPriceEl = document.getElementById("rm-curr-price");
-  if (rmCurrPriceEl) rmCurrPriceEl.textContent = formatCurrency(closeVal, curr);
+  if (rmCurrPriceEl) rmCurrPriceEl.textContent = closeVal != null ? formatCurrency(closeVal, curr) : "N/A";
 
   const rmStatusEl = document.getElementById("rm-target-status");
   if (rmStatusEl) {
@@ -2296,20 +2481,26 @@ function updateStockUI() {
     rmStatusEl.style.color = (verdictBadgeClass === "badge-purple") ? "var(--accent-purple)" : ((verdictBadgeClass === "badge-success") ? "var(--accent-green)" : "var(--accent-amber)");
   }
 
-  document.getElementById("rm-entry").textContent = formatCurrency(pivotVal, curr);
-  document.getElementById("rm-stop").textContent = formatCurrency(stopVal, curr);
-  document.getElementById("rm-tp1").textContent = formatCurrency(tp1Val, curr);
-  document.getElementById("rm-tp2").textContent = formatCurrency(tp2Val, curr);
-  document.getElementById("vis-entry").textContent = formatCurrency(pivotVal, curr);
-  document.getElementById("vis-stop").textContent = formatCurrency(stopVal, curr);
-  document.getElementById("vis-tp1").textContent = formatCurrency(tp1Val, curr);
-  document.getElementById("vis-tp2").textContent = formatCurrency(tp2Val, curr);
+  document.getElementById("rm-entry").textContent = pivotVal != null ? formatCurrency(pivotVal, curr) : "N/A";
+  document.getElementById("rm-stop").textContent = stopVal != null ? formatCurrency(stopVal, curr) : "N/A";
+  document.getElementById("rm-tp1").textContent = tp1Val != null ? formatCurrency(tp1Val, curr) : "N/A";
+  document.getElementById("rm-tp2").textContent = tp2Val != null ? formatCurrency(tp2Val, curr) : "N/A";
+  document.getElementById("vis-entry").textContent = pivotVal != null ? formatCurrency(pivotVal, curr) : "N/A";
+  document.getElementById("vis-stop").textContent = stopVal != null ? formatCurrency(stopVal, curr) : "N/A";
+  document.getElementById("vis-tp1").textContent = tp1Val != null ? formatCurrency(tp1Val, curr) : "N/A";
+  document.getElementById("vis-tp2").textContent = tp2Val != null ? formatCurrency(tp2Val, curr) : "N/A";
 
   const rmAcctRiskEl = document.getElementById("rm-acct-risk");
   if (rmAcctRiskEl) rmAcctRiskEl.textContent = `1.0% (${formatCurrency(5000, curr, 0)})`;
 
-  document.getElementById("rm-pot-gain").textContent = `+${formatCurrency((tp2Val - pivotVal) * 100, curr, 0)}`;
-  document.getElementById("rm-pot-risk").textContent = `-${formatCurrency((pivotVal - stopVal) * 100, curr, 0)}`;
+  const rmPotGainEl = document.getElementById("rm-pot-gain");
+  if (rmPotGainEl) {
+    rmPotGainEl.textContent = (tp2Val != null && pivotVal != null) ? `+${formatCurrency((tp2Val - pivotVal) * 100, curr, 0)}` : "N/A";
+  }
+  const rmPotRiskEl = document.getElementById("rm-pot-risk");
+  if (rmPotRiskEl) {
+    rmPotRiskEl.textContent = (pivotVal != null && stopVal != null) ? `-${formatCurrency((pivotVal - stopVal) * 100, curr, 0)}` : "N/A";
+  }
 
   // Stock Research View Header & Cards
   document.getElementById("res-logo").textContent = d.symbol.substring(0, 2);
@@ -2576,14 +2767,15 @@ function renderNormalizedLWChart(containerEl, tooltipEl, candles) {
   if (selectedStockData) {
     const curr = selectedStockData.currency || "INR";
     const plan = selectedStockData.plan || {};
-    const pivotVal = (plan.pivot && plan.pivot.value) ? plan.pivot.value : null;
-    const stopVal = (plan.stop && plan.stop.value) ? plan.stop.value : null;
-    const risk = (pivotVal && stopVal) ? (pivotVal - stopVal) : 0;
+    const pivotVal = (plan.pivot && plan.pivot.value != null) ? plan.pivot.value : null;
+    const stopVal = (plan.stop && plan.stop.value != null) ? plan.stop.value : null;
+    const hasValidPlan = Boolean(pivotVal != null && stopVal != null && pivotVal > stopVal);
+    const risk = hasValidPlan ? (pivotVal - stopVal) : null;
 
-    const tp1Val = selectedStockData.tp1 || (pivotVal ? pivotVal + 2 * risk : null);
-    const tp2Val = selectedStockData.tp2 || (pivotVal ? pivotVal + 3 * risk : null);
+    const tp1Val = selectedStockData.tp1 != null ? selectedStockData.tp1 : (hasValidPlan ? pivotVal + 2 * risk : null);
+    const tp2Val = selectedStockData.tp2 != null ? selectedStockData.tp2 : (hasValidPlan ? pivotVal + 3 * risk : null);
 
-    if (pivotVal) {
+    if (hasValidPlan && pivotVal != null) {
       candleSeries.createPriceLine({
         price: pivotVal,
         color: '#3b82f6',
@@ -2593,8 +2785,8 @@ function renderNormalizedLWChart(containerEl, tooltipEl, candles) {
         title: `Entry (Pivot): ${formatCurrency(pivotVal, curr)}`
       });
     }
-    if (stopVal) {
-      const riskPct = pivotVal ? ((pivotVal - stopVal) / pivotVal * 100).toFixed(1) : '5.0';
+    if (hasValidPlan && stopVal != null) {
+      const riskPct = ((pivotVal - stopVal) / pivotVal * 100).toFixed(1);
       candleSeries.createPriceLine({
         price: stopVal,
         color: '#ef4444',
@@ -2604,24 +2796,24 @@ function renderNormalizedLWChart(containerEl, tooltipEl, candles) {
         title: `Stop Loss: ${formatCurrency(stopVal, curr)} (-${riskPct}%)`
       });
     }
-    if (tp1Val) {
+    if (hasValidPlan && tp1Val != null) {
       candleSeries.createPriceLine({
         price: tp1Val,
         color: '#10b981',
         lineWidth: 2,
         lineStyle: LightweightCharts.LineStyle.Dashed,
         axisLabelVisible: true,
-        title: `Target 1 (+10% / 2R): ${formatCurrency(tp1Val, curr)}`
+        title: `Target 1 (2R): ${formatCurrency(tp1Val, curr)}`
       });
     }
-    if (tp2Val) {
+    if (hasValidPlan && tp2Val != null) {
       candleSeries.createPriceLine({
         price: tp2Val,
         color: '#8b5cf6',
         lineWidth: 2,
         lineStyle: LightweightCharts.LineStyle.Dashed,
         axisLabelVisible: true,
-        title: `Target 2 (+20% / 4R): ${formatCurrency(tp2Val, curr)}`
+        title: `Target 2 (3R): ${formatCurrency(tp2Val, curr)}`
       });
     }
   }
