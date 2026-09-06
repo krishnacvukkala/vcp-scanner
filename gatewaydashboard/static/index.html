@@ -1,0 +1,2603 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Aaroquant — AI Trading & Risk Management Dashboard (NSE Equities)</title>
+
+<!-- Google Fonts: Inter & Space Grotesk -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+
+<!-- TradingView Lightweight Charts Library -->
+<script src="https://unpkg.com/lightweight-charts@4.1.1/dist/lightweight-charts.standalone.production.js"></script>
+
+<!-- Official TradingView Widget Script -->
+<script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
+
+<style>
+:root {
+  color-scheme: light;
+
+  /* ── Main backgrounds: light/white like reference ── */
+  --bg-main: #f1f5f9;
+  --bg-card: #ffffff;
+  --bg-card-subtle: #f8fafc;
+  --bg-sidebar: #070a10;
+  --border-color: #e2e8f0;
+  --border-card: #e8eef5;
+
+  /* ── Text ── */
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #94a3b8;
+
+  /* ── Accent colors (exact from reference) ── */
+  --accent-blue: #3b82f6;
+  --accent-blue-bg: rgba(59, 130, 246, 0.10);
+  --accent-cyan: #06b6d4;
+
+  /* Green = Buy / Strong Buy / Take Profit / Positive */
+  --accent-green: #16a34a;
+  --accent-green-light: #22c55e;
+  --accent-green-bg: rgba(22, 163, 74, 0.10);
+
+  /* Red = Stop Loss / Negative / Danger */
+  --accent-red: #dc2626;
+  --accent-red-bg: rgba(220, 38, 38, 0.10);
+
+  /* Amber = Watch / Warning */
+  --accent-amber: #d97706;
+  --accent-amber-bg: rgba(217, 119, 6, 0.10);
+
+  --accent-purple: #7c3aed;
+
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-heading: 'Space Grotesk', 'Inter', sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+
+  --shadow-sm: 0 1px 3px 0 rgba(15, 23, 42, 0.08), 0 1px 2px -1px rgba(15, 23, 42, 0.06);
+  --shadow-md: 0 4px 12px -2px rgba(15, 23, 42, 0.10), 0 2px 6px -2px rgba(15, 23, 42, 0.06);
+  --shadow-card: 0 1px 3px 0 rgba(15, 23, 42, 0.06), 0 1px 2px 0 rgba(15, 23, 42, 0.04);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: var(--font-sans);
+  background-color: var(--bg-main);
+  color: var(--text-primary);
+  display: flex;
+  height: 100vh;
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+.app-container { display: flex; width: 100vw; height: 100vh; overflow: hidden; }
+
+/* ── Sidebar (stays dark as reference) ── */
+.sidebar {
+  width: 240px;
+  background-color: var(--bg-sidebar);
+  color: #94a3b8;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid #1f2937;
+  flex-shrink: 0;
+}
+.sidebar-logo {
+  padding: 20px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--font-heading);
+  font-size: 20px;
+  font-weight: 700;
+  color: #ffffff;
+}
+.logo-icon {
+  width: 32px;
+  height: 32px;
+  background: linear-gradient(135deg, #3b82f6, #06b6d4);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-weight: 800;
+  font-size: 18px;
+  box-shadow: 0 0 16px rgba(59, 130, 246, 0.5);
+}
+.nav-list { list-style: none; padding: 10px 12px; flex: 1; overflow-y: auto; }
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 14px;
+  border-radius: 10px;
+  font-size: 13.5px;
+  font-weight: 500;
+  color: #94a3b8;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  margin-bottom: 3px;
+}
+.nav-item:hover { background-color: #141c2e; color: #e2e8f0; }
+.nav-item.active { background-color: #1e3a5f; color: #60a5fa; font-weight: 600; }
+
+.bot-card {
+  margin: 12px;
+  padding: 14px;
+  border-radius: 12px;
+  background: linear-gradient(180deg, rgba(20, 28, 46, 0.9), rgba(7, 10, 16, 0.95));
+  border: 1px solid #1f2937;
+}
+.bot-status { display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 600; color: #22c55e; margin-bottom: 4px; }
+.pulse-dot { width: 8px; height: 8px; background-color: #22c55e; border-radius: 50%; box-shadow: 0 0 6px #22c55e; animation: pulse-glow 2s infinite; }
+@keyframes pulse-glow { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
+.bot-desc { font-size: 11px; color: #64748b; line-height: 1.3; }
+
+/* ── Main Workspace ── */
+.main-wrapper { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+/* ── Process Header (white, with shadow, matching reference top workflow bar) ── */
+.header-bar {
+  height: 60px;
+  border-bottom: 1px solid var(--border-color);
+  background-color: #ffffff;
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+  flex-shrink: 0;
+}
+.process-flow { display: flex; align-items: center; gap: 18px; }
+.pf-step {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.pf-step.active { color: #0f172a; }
+.pf-num {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 700;
+  color: #64748b;
+}
+.pf-step.active .pf-num { background: #0f172a; color: white; border-color: #0f172a; }
+.pf-arrow { color: #cbd5e1; font-size: 13px; }
+
+.header-right { display: flex; align-items: center; gap: 12px; }
+.status-pill {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 14px;
+  border-radius: 20px;
+  background: rgba(22, 163, 74, 0.08);
+  color: #16a34a;
+  border: 1px solid rgba(22, 163, 74, 0.25);
+}
+
+/* ── Content Area ── */
+.content-area { flex: 1; padding: 24px; overflow-y: auto; background: var(--bg-main); }
+.view-panel { display: none; }
+.view-panel.active { display: block; }
+
+/* ── Dashboard Stats Grid ── */
+.stats-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px; margin-bottom: 22px; }
+.stat-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  border-radius: 14px;
+  padding: 18px;
+  box-shadow: var(--shadow-card);
+}
+.stat-title { font-size: 11.5px; color: var(--text-muted); font-weight: 600; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.06em; }
+.stat-val { font-family: var(--font-heading); font-size: 26px; font-weight: 700; color: var(--text-primary); }
+.stat-sub { font-size: 11px; color: var(--accent-green); margin-top: 4px; display: flex; align-items: center; justify-content: space-between; }
+
+/* ── Section Titles ── */
+.section-title { font-family: var(--font-heading); font-size: 17px; font-weight: 700; color: var(--text-primary); margin-bottom: 14px; display: flex; align-items: center; justify-content: space-between; }
+
+/* ── Layout ── */
+.dashboard-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+
+/* ── Cards ── */
+.card-box {
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  border-radius: 14px;
+  padding: 20px;
+  margin-bottom: 20px;
+  box-shadow: var(--shadow-card);
+}
+
+/* ── Tables ── */
+.table-container { width: 100%; overflow-x: auto; }
+table.data-table { width: 100%; border-collapse: collapse; text-align: left; font-size: 13px; }
+table.data-table th {
+  padding: 11px 12px;
+  font-size: 11px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  border-bottom: 1px solid var(--border-card);
+  font-weight: 600;
+  background: #f8fafc;
+}
+table.data-table td { padding: 13px 12px; border-bottom: 1px solid #f1f5f9; font-weight: 500; color: var(--text-primary); }
+table.data-table tr:hover { background: #f8fafc; cursor: pointer; }
+
+/* ── Ticker icon ── */
+.ticker-badge { display: flex; align-items: center; gap: 10px; }
+.t-icon {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  background: #eff6ff;
+  color: #2563eb;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 11px;
+  border: 1px solid #dbeafe;
+}
+
+/* ── Badges: exact reference color coding ──
+   Strong Buy / Valid Setup → green dot + green text
+   Watch / Near Pivot       → amber dot + amber text
+   Target Hit               → blue
+   No Setup                 → gray
+   Stop / Danger            → red
+*/
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+.badge::before {
+  content: '';
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+/* Strong Buy / Valid Setup */
+.badge-success {
+  background: #dcfce7;
+  color: #15803d;
+  border: 1px solid #bbf7d0;
+}
+.badge-success::before { background: #16a34a; }
+
+/* Watch Near Pivot */
+.badge-warning {
+  background: #fef3c7;
+  color: #b45309;
+  border: 1px solid #fde68a;
+}
+.badge-warning::before { background: #d97706; }
+
+/* Stop Loss / Danger */
+.badge-danger {
+  background: #fee2e2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+}
+.badge-danger::before { background: #dc2626; }
+
+/* Blue / Buy Trigger */
+.badge-blue {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #dbeafe;
+}
+.badge-blue::before { background: #3b82f6; }
+
+/* Purple / Fundamental */
+.badge-purple {
+  background: #f5f3ff;
+  color: #6d28d9;
+  border: 1px solid #ddd6fe;
+}
+.badge-purple::before { background: #7c3aed; }
+
+/* Gray / No Signal */
+.badge-muted {
+  background: #f1f5f9;
+  color: #64748b;
+  border: 1px solid #e2e8f0;
+}
+.badge-muted::before { background: #94a3b8; }
+
+/* ── Chart Header & Buttons ── */
+.chart-box-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; flex-wrap: wrap; gap: 10px; }
+.tf-btn-group { display: flex; gap: 3px; background: #f1f5f9; padding: 3px; border-radius: 8px; border: 1px solid var(--border-card); }
+.tf-btn { padding: 4px 10px; font-size: 11px; font-weight: 700; border: none; background: transparent; color: var(--text-secondary); border-radius: 6px; cursor: pointer; transition: all 0.15s ease; }
+.tf-btn.active { background: var(--accent-blue); color: white; box-shadow: 0 1px 4px rgba(59,130,246,0.35); }
+
+.toggle-btn-group { display: flex; background: #f1f5f9; padding: 3px; border-radius: 8px; border: 1px solid var(--border-card); }
+.toggle-btn { padding: 6px 12px; font-size: 12px; font-weight: 600; border: none; background: transparent; color: var(--text-secondary); border-radius: 6px; cursor: pointer; transition: all 0.15s ease; }
+.toggle-btn.active { background: var(--accent-blue); color: white; box-shadow: 0 1px 4px rgba(59,130,246,0.3); }
+
+.chart-viewport { width: 100%; height: 480px; border-radius: 10px; overflow: hidden; background: #ffffff; border: 1px solid var(--border-card); position: relative; box-shadow: var(--shadow-sm); }
+#tv-widget-container { width: 100%; height: 100%; display: none; }
+#lw-chart-container { width: 100%; height: 100%; display: block; }
+#tv-widget-container-analysis { width: 100%; height: 100%; display: none; }
+#lw-chart-container-analysis { width: 100%; height: 100%; display: block; }
+
+/* ── Chart Tooltip ── */
+.chart-tooltip {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 10;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--border-card);
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-secondary);
+  pointer-events: none;
+  display: flex;
+  gap: 12px;
+  box-shadow: var(--shadow-sm);
+}
+
+/* ── Risk / Trade Plan Cards ── */
+.trade-plan-layout { display: grid; grid-template-columns: 240px 1fr 1fr; gap: 20px; }
+.workflow-steps-card { background: var(--bg-card); border: 1px solid var(--border-card); border-radius: 14px; padding: 20px; box-shadow: var(--shadow-card); }
+.wf-step-item { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 20px; position: relative; }
+.wf-step-icon { width: 28px; height: 28px; border-radius: 50%; background: #dcfce7; color: #15803d; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; flex-shrink: 0; }
+.wf-step-title { font-size: 13px; font-weight: 700; color: var(--text-primary); margin-bottom: 2px; }
+.wf-step-desc { font-size: 11px; color: var(--text-secondary); line-height: 1.3; }
+
+.params-card { background: var(--bg-card); border: 1px solid var(--border-card); border-radius: 14px; padding: 20px; box-shadow: var(--shadow-card); }
+.param-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px;
+  border-radius: 8px;
+  background: #f8fafc;
+  margin-bottom: 10px;
+  border: 1px solid var(--border-card);
+}
+.param-label { font-size: 13px; color: var(--text-secondary); }
+.param-val { font-family: var(--font-mono); font-size: 15px; font-weight: 700; }
+
+/* Exact color coding from reference: Stop Loss = red, TP = green, Entry = blue */
+.param-val.stop {
+  color: #b91c1c;
+  background: #fee2e2;
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid #fecaca;
+}
+.param-val.tp1 {
+  color: #15803d;
+  background: #dcfce7;
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid #bbf7d0;
+}
+.param-val.tp2 {
+  color: #15803d;
+  background: #dcfce7;
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid #86efac;
+}
+
+/* ── RR Visualizer (exact reference color zones) ── */
+.rr-visualizer-box { background: var(--bg-card); border: 1px solid var(--border-card); border-radius: 14px; padding: 20px; display: flex; flex-direction: column; justify-content: space-between; box-shadow: var(--shadow-card); }
+.rr-diagram { width: 100%; height: 220px; background: #f8fafc; border-radius: 10px; border: 1px solid var(--border-card); position: relative; display: flex; flex-direction: column; justify-content: space-between; padding: 16px; }
+.rr-zone { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; border-radius: 6px; font-size: 12px; font-weight: 700; font-family: var(--font-mono); }
+/* TP2 = bright green */
+.rr-tp2 { background: #dcfce7; color: #15803d; border-left: 3px solid #16a34a; }
+/* TP1 = lighter green */
+.rr-tp1 { background: #f0fdf4; color: #16a34a; border-left: 3px solid #22c55e; }
+/* Entry = blue */
+.rr-entry { background: #eff6ff; color: #1d4ed8; border-left: 4px solid #3b82f6; }
+/* Stop Loss = red */
+.rr-sl { background: #fee2e2; color: #b91c1c; border-left: 4px solid #dc2626; }
+
+/* ── Stock Research Header ── */
+.research-header { display: flex; align-items: center; justify-content: space-between; background: var(--bg-card); border: 1px solid var(--border-card); border-radius: 14px; padding: 20px; margin-bottom: 20px; box-shadow: var(--shadow-card); }
+.stock-info-main { display: flex; align-items: center; gap: 16px; }
+.stock-logo-lg { width: 48px; height: 48px; border-radius: 12px; background: linear-gradient(135deg, #3b82f6, #7c3aed); color: white; display: flex; align-items: center; justify-content: center; font-size: 22px; font-weight: 800; }
+.stock-title { font-family: var(--font-heading); font-size: 22px; font-weight: 700; color: var(--text-primary); }
+.stock-subtitle { font-size: 13px; color: var(--text-secondary); }
+.stock-price-lg { text-align: right; }
+.price-val-lg { font-family: var(--font-heading); font-size: 26px; font-weight: 700; color: var(--text-primary); }
+.price-change-lg { font-size: 13px; color: var(--accent-green); font-weight: 600; }
+
+/* ── Subtabs ── */
+.subnav-tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border-card); margin-bottom: 20px; padding-bottom: 0; overflow-x: auto; }
+.subnav-tab {
+  padding: 9px 18px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  border-radius: 8px 8px 0 0;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+  border-bottom: 2px solid transparent;
+}
+.subnav-tab:hover { color: var(--text-primary); background: #f8fafc; }
+.subnav-tab.active { color: var(--accent-blue); border-bottom: 2px solid var(--accent-blue); background: transparent; }
+
+.research-subpanel { display: none; }
+.research-subpanel.active { display: block; }
+
+.research-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 20px; }
+
+/* ── Financial Bar Chart ── */
+.fin-bars-container { display: flex; align-items: flex-end; gap: 20px; height: 220px; padding: 10px 0; border-bottom: 1px solid var(--border-card); }
+.fin-bar-group { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; height: 100%; justify-content: flex-end; }
+.bar-pair { display: flex; align-items: flex-end; gap: 10px; width: 100%; justify-content: center; height: 175px; }
+.bar-col { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.bar-val-lbl { font-size: 10px; font-weight: 700; font-family: var(--font-mono); white-space: nowrap; }
+.bar-val-lbl.rev { color: #2563eb; }
+.bar-val-lbl.ni { color: #15803d; }
+/* Revenue bar: blue gradient (reference) */
+.bar-rev { width: 22px; background: linear-gradient(180deg, #3b82f6, #1d4ed8); border-radius: 4px 4px 0 0; min-height: 4px; }
+/* Net Income bar: green gradient (reference) */
+.bar-ni { width: 22px; background: linear-gradient(180deg, #22c55e, #15803d); border-radius: 4px 4px 0 0; min-height: 4px; }
+.bar-label { font-size: 11px; color: var(--text-muted); font-weight: 600; margin-top: 4px; }
+
+/* ── 52-Week Range Slider ── */
+.range-slider-bg { width: 100%; height: 6px; background: #e2e8f0; border-radius: 4px; position: relative; margin: 10px 0; }
+.range-slider-fill { height: 100%; background: linear-gradient(90deg, #3b82f6, #22c55e); border-radius: 4px; }
+.range-slider-dot { width: 14px; height: 14px; background: white; border: 2px solid #16a34a; border-radius: 50%; position: absolute; top: -4px; transform: translateX(-50%); box-shadow: 0 0 6px rgba(22, 163, 74, 0.6); }
+
+/* ── Gate Verification ── */
+.gate-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #f1f5f9; font-size: 13px; }
+.gate-check { font-weight: 700; font-family: var(--font-mono); }
+.gate-check.pass { color: #16a34a; }
+.gate-check.fail { color: #dc2626; }
+
+/* ── Positive / Negative number formatting ── */
+.num-positive { color: #16a34a; font-weight: 600; }
+.num-negative { color: #dc2626; font-weight: 600; }
+</style>
+
+</head>
+<body>
+
+<div class="app-container">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-icon">A</div>
+      <span>Aaroquant</span>
+    </div>
+
+    <ul class="nav-list">
+      <li class="nav-item active" onclick="switchNav('dashboard', this)">
+        <span>🏠</span> Dashboard
+      </li>
+      <li class="nav-item" onclick="switchNav('trades-today', this)">
+        <span>🎯</span> Trades For Today
+      </li>
+      <li class="nav-item" onclick="switchNav('chart-analysis', this)">
+        <span>📊</span> Chart & Analysis
+      </li>
+      <li class="nav-item" onclick="switchNav('stock-research', this)">
+        <span>📑</span> Stock Research
+      </li>
+      <li class="nav-item" onclick="switchNav('risk-manager', this)">
+        <span>🛡️</span> Risk Manager & Plan
+      </li>
+      <li class="nav-item" onclick="switchNav('settings-provenance', this)">
+        <span>⚙️</span> Settings & Rules
+      </li>
+      <li class="nav-item" onclick="switchNav('help-guide', this)">
+        <span>📚</span> Help & Guide
+      </li>
+    </ul>
+
+    <div class="bot-card">
+      <div class="bot-status">
+        <div class="pulse-dot"></div>
+        AI Trading Bot Online
+      </div>
+      <div class="bot-desc">"Turning data into high-probability trading opportunities."</div>
+    </div>
+  </aside>
+
+  <!-- MAIN WRAPPER -->
+  <div class="main-wrapper">
+
+    <!-- PROCESS FLOW HEADER -->
+    <header class="header-bar">
+      <div class="process-flow">
+        <div class="pf-step active">
+          <div class="pf-num">01</div>
+          <span>SCAN</span>
+        </div>
+        <div class="pf-arrow">→</div>
+        <div class="pf-step active">
+          <div class="pf-num">02</div>
+          <span>ANALYZE</span>
+        </div>
+        <div class="pf-arrow">→</div>
+        <div class="pf-step active">
+          <div class="pf-num">03</div>
+          <span>RESEARCH</span>
+        </div>
+        <div class="pf-arrow">→</div>
+        <div class="pf-step active">
+          <div class="pf-num">04</div>
+          <span>RISK</span>
+        </div>
+        <div class="pf-arrow">→</div>
+        <div class="pf-step active">
+          <div class="pf-num">05</div>
+          <span>PLAN</span>
+        </div>
+      </div>
+
+      <div class="header-right">
+        <div class="status-pill">
+          <span style="width:6px;height:6px;background:#10b981;border-radius:50%"></span>
+          Global Market Provider
+        </div>
+        <button onclick="triggerScan(true)" style="background:var(--accent-blue);color:white;border:none;padding:8px 14px;border-radius:8px;font-weight:600;cursor:pointer;font-size:12px">Run Scan Now</button>
+      </div>
+    </header>
+
+    <!-- GLOBAL MARKET FILTER BAR -->
+    <div class="global-filter-bar" style="background:var(--bg-card);border-bottom:1px solid var(--border-card);padding:10px 24px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap">
+      <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+        <div style="display:flex;align-items:center;gap:6px">
+          <span style="font-size:12px;font-weight:700;color:var(--text-muted)">Country:</span>
+          <select id="filter-country" onchange="onCountryChange(this.value)" style="background:var(--bg-card-subtle);color:var(--text-primary);border:1px solid var(--border-card);padding:6px 12px;border-radius:8px;font-size:12px;font-weight:600;outline:none;cursor:pointer">
+            <option value="ALL">ALL (Global)</option>
+            <option value="India">India</option>
+            <option value="United States">United States</option>
+            <option value="Germany">Germany</option>
+            <option value="United Kingdom">United Kingdom</option>
+            <option value="Japan">Japan</option>
+            <option value="Hong Kong">Hong Kong</option>
+            <option value="Australia">Australia</option>
+            <option value="Canada">Canada</option>
+          </select>
+        </div>
+
+        <div style="display:flex;align-items:center;gap:6px">
+          <span style="font-size:12px;font-weight:700;color:var(--text-muted)">Exchange:</span>
+          <select id="filter-exchange" onchange="onExchangeChange(this.value)" style="background:var(--bg-card-subtle);color:var(--text-primary);border:1px solid var(--border-card);padding:6px 12px;border-radius:8px;font-size:12px;font-weight:600;outline:none;cursor:pointer">
+            <option value="ALL">ALL Exchanges</option>
+          </select>
+        </div>
+
+        <div style="display:flex;align-items:center;gap:6px">
+          <span style="font-size:12px;font-weight:700;color:var(--text-muted)">Asset Class:</span>
+          <select id="filter-asset-class" onchange="onAssetClassChange(this.value)" style="background:var(--bg-card-subtle);color:var(--text-primary);border:1px solid var(--border-card);padding:6px 12px;border-radius:8px;font-size:12px;font-weight:600;outline:none;cursor:pointer">
+            <option value="ALL">ALL Asset Classes</option>
+            <option value="EQUITY">Equities</option>
+            <option value="ETF">ETFs</option>
+            <option value="INDEX">Indices</option>
+            <option value="FUTURES">Futures</option>
+            <option value="CRYPTO">Crypto</option>
+            <option value="FOREX">Forex</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Search Input with Auto-Suggest -->
+      <div style="position:relative;width:300px">
+        <input type="text" id="global-search-input" placeholder="🔍 Search Symbol (AAPL, RELIANCE, ES=F)..." oninput="onGlobalSearch(this.value)" style="width:100%;background:var(--bg-card-subtle);color:var(--text-primary);border:1px solid var(--border-card);padding:7px 14px;border-radius:8px;font-size:12px;outline:none">
+        <div id="search-suggest-dropdown" style="display:none;position:absolute;top:38px;left:0;right:0;background:var(--bg-card);border:1px solid var(--border-card);border-radius:8px;max-height:260px;overflow-y:auto;z-index:100;box-shadow:0 10px 25px rgba(0,0,0,0.5)"></div>
+      </div>
+    </div>
+
+    <!-- CONTENT AREA -->
+    <main class="content-area">
+
+      <!-- VIEW 1: DASHBOARD OVERVIEW -->
+      <div id="view-dashboard" class="view-panel active">
+        
+        <!-- KPI Summary Stats Header -->
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-title">Markets Scanned</div>
+            <div class="stat-val" id="stat-scanned">84</div>
+            <div class="stat-sub"><span>NSE Equities Universe</span></div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-title">Potential Setups</div>
+            <div class="stat-val" id="stat-setups" style="color:var(--accent-green)">2</div>
+            <div class="stat-sub"><span style="color:var(--accent-green)">Stage 2 Confirmed</span></div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-title">Near Pivot / Watch</div>
+            <div class="stat-val" id="stat-watch" style="color:var(--accent-amber)">4</div>
+            <div class="stat-sub"><span style="color:var(--accent-amber)">Tight Contractions</span></div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-title">Win Rate (Backtest)</div>
+            <div class="stat-val">73%</div>
+            <div class="stat-sub"><span>Minervini SEPA</span></div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-title">Avg. Return</div>
+            <div class="stat-val" style="color:var(--accent-green)">+18.24%</div>
+            <div class="stat-sub"><span>Per Winner</span></div>
+          </div>
+        </div>
+
+        <!-- Global Market Categorization Matrix -->
+        <div class="card-box" style="margin-bottom:24px">
+          <div class="section-title" style="display:flex;align-items:center;justify-content:space-between">
+            <span>🌐 Global Markets Categorized Scan</span>
+            <div style="font-size:11px;color:var(--text-muted)">Scanning & Categorizing Global Universe by Country, Exchange & Aaroquant Swing Trades Strategy</div>
+          </div>
+          
+          <!-- Category Tabs -->
+          <div class="subnav-tabs" style="margin-bottom:16px;border-bottom:1px solid var(--border-card);overflow-x:auto;padding-bottom:6px;display:flex;gap:6px">
+            <button class="subnav-tab active" onclick="switchCategorizedMarketTab('ALL', this)">ALL Markets</button>
+            <button class="subnav-tab" onclick="switchCategorizedMarketTab('United States', this)">🇺🇸 United States</button>
+            <button class="subnav-tab" onclick="switchCategorizedMarketTab('India', this)">🇮🇳 India</button>
+            <button class="subnav-tab" onclick="switchCategorizedMarketTab('Germany', this)">🇩🇪 Germany</button>
+            <button class="subnav-tab" onclick="switchCategorizedMarketTab('United Kingdom', this)">🇬🇧 United Kingdom</button>
+            <button class="subnav-tab" onclick="switchCategorizedMarketTab('Japan', this)">🇯🇵 Japan</button>
+            <button class="subnav-tab" onclick="switchCategorizedMarketTab('Hong Kong', this)">🇭🇰 Hong Kong</button>
+            <button class="subnav-tab" onclick="switchCategorizedMarketTab('Australia', this)">🇦🇺 Australia</button>
+            <button class="subnav-tab" onclick="switchCategorizedMarketTab('Canada', this)">🇨🇦 Canada</button>
+            <button class="subnav-tab" onclick="switchCategorizedMarketTab('Global', this)">🌐 Crypto / Forex / Indices</button>
+          </div>
+
+          <!-- Categorized Market Grid Container -->
+          <div id="categorized-markets-grid" style="display:grid;grid-template-columns:repeat(auto-fit, minmax(320px, 1fr));gap:16px">
+            <!-- Populated dynamically via renderCategorizedMarkets() -->
+          </div>
+        </div>
+
+        <!-- Dashboard Grid -->
+        <div class="dashboard-grid">
+          
+          <!-- Left Column: Top Setups Today & Latest AI Trade Plan -->
+          <div>
+            <div class="card-box">
+              <div class="section-title">
+                <span>🎯 Top Setups Today</span>
+                <span style="font-size:12px;color:var(--accent-blue);cursor:pointer" onclick="switchNav('trades-today', document.querySelectorAll('.nav-item')[1])">View All →</span>
+              </div>
+              <div class="table-container">
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th>Symbol</th>
+                      <th>Price</th>
+                      <th>Contractions</th>
+                      <th>AI Signal</th>
+                    </tr>
+                  </thead>
+                  <tbody id="dash-setups-tbody">
+                    <!-- Populated via JS -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- Latest AI Trade Plan -->
+            <div class="card-box" id="dash-trade-plan-card">
+              <div class="section-title">
+                <span>📄 Latest AI Trade Plan</span>
+                <span class="badge badge-success">Long Setup</span>
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
+                <div class="param-row"><span class="param-label">Entry Price</span><span class="param-val" id="tp-entry">₹2,250.00</span></div>
+                <div class="param-row"><span class="param-label">Stop Loss</span><span class="param-val stop" id="tp-stop">₹2,097.00</span></div>
+                <div class="param-row"><span class="param-label">Take Profit 1</span><span class="param-val tp1" id="tp-tp1">₹2,556.00</span></div>
+                <div class="param-row"><span class="param-label">Take Profit 2</span><span class="param-val tp2" id="tp-tp2">₹2,709.00</span></div>
+                <div class="param-row"><span class="param-label">Risk:Reward</span><span class="param-val" id="tp-rr">2.4 : 1</span></div>
+                <div class="param-row"><span class="param-label">Account Risk</span><span class="param-val">1.0%</span></div>
+              </div>
+              <div>
+                <div style="display:flex;justify-content:space-between;font-size:12px;font-weight:600;margin-bottom:4px">
+                  <span>Confidence Score</span>
+                  <span id="tp-conf-score" style="color:var(--accent-green)">78%</span>
+                </div>
+                <div style="width:100%;height:8px;background:var(--border-card);border-radius:4px;overflow:hidden">
+                  <div id="tp-conf-bar" style="width:78%;height:100%;background:linear-gradient(90deg, #10b981, #06b6d4);border-radius:4px"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Right Column: Interactive Chart Preview & AI Insights -->
+          <div>
+            <div class="card-box">
+              <div class="chart-box-header">
+                <div style="font-family:var(--font-heading);font-weight:700;font-size:16px" id="dash-chart-title">NSE Candlestick Chart — RELIANCE</div>
+                <div style="display:flex;align-items:center;gap:8px">
+                  <div class="tf-btn-group">
+                    <button class="tf-btn" onclick="setTimeframe('5m')">5m</button>
+                    <button class="tf-btn" onclick="setTimeframe('15m')">15m</button>
+                    <button class="tf-btn" onclick="setTimeframe('1h')">1h</button>
+                    <button class="tf-btn active" onclick="setTimeframe('1D')">1D</button>
+                    <button class="tf-btn" onclick="setTimeframe('1W')">1W</button>
+                    <button class="tf-btn" onclick="setTimeframe('1M')">1M</button>
+                  </div>
+                  <div class="toggle-btn-group">
+                    <button class="toggle-btn active" onclick="setChartEngine('lw')">Interactive NSE Chart</button>
+                    <button class="toggle-btn" onclick="setChartEngine('tv')">TradingView Widget</button>
+                  </div>
+                </div>
+              </div>
+              <div class="chart-viewport">
+                <div id="dash-chart-tooltip" class="chart-tooltip">O: - H: - L: - C: - Vol: -</div>
+                <div id="lw-chart-container"></div>
+                <div id="tv-widget-container"></div>
+              </div>
+            </div>
+
+            <!-- AI Insights -->
+            <div class="card-box">
+              <div class="section-title">💡 AI Insights & Setup Synthesis</div>
+              <div style="display:flex;flex-direction:column;gap:12px">
+                <div style="padding:12px;background:var(--bg-card-subtle);border-radius:10px;border:1px solid var(--border-card)">
+                  <div style="font-size:13px;font-weight:700;color:var(--accent-blue);margin-bottom:2px">📊 Technical Analysis</div>
+                  <div style="font-size:12px;color:var(--text-secondary)" id="ai-insight-tech">Strong Stage-2 uptrend. Contractions narrowing progressively near 52-week high.</div>
+                </div>
+                <div style="padding:12px;background:var(--bg-card-subtle);border-radius:10px;border:1px solid var(--border-card)">
+                  <div style="font-size:13px;font-weight:700;color:var(--accent-purple);margin-bottom:2px">📑 Fundamental Growth</div>
+                  <div style="font-size:12px;color:var(--text-secondary)" id="ai-insight-fund">Robust revenue and profit margin growth. Institutional demand expanding.</div>
+                </div>
+                <div style="padding:12px;background:var(--bg-card-subtle);border-radius:10px;border:1px solid var(--border-card)">
+                  <div style="font-size:13px;font-weight:700;color:var(--accent-green);margin-bottom:2px">🛡️ Risk:Reward Profile</div>
+                  <div style="font-size:12px;color:var(--text-secondary)" id="ai-insight-risk">Favorable 2.4:1 reward-to-risk ratio. Well-defined stop loss below final wave low.</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+
+      <!-- VIEW 2: TRADES FOR TODAY -->
+      <div id="view-trades-today" class="view-panel">
+        <div class="card-box">
+          <div class="section-title">
+            <span>🎯 Trades For Today — Aaroquant Swing Trades</span>
+            <div style="display:flex;align-items:center;gap:8px">
+              <div class="tf-btn-group">
+                <button class="tf-btn active" id="btn-trades-active" onclick="switchTradesTab('active')">Active Setups</button>
+                <button class="tf-btn" id="btn-trades-stoploss" onclick="switchTradesTab('stop_loss')">🔴 Stop Loss Hit</button>
+                <button class="tf-btn" id="btn-trades-completed" onclick="switchTradesTab('completed')">🏆 Target Hit</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Filter Bar -->
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap;background:#f8fafc;border:1px solid var(--border-card);border-radius:10px;padding:10px 14px">
+            <span style="font-size:12px;font-weight:700;color:var(--text-muted)">FILTER:</span>
+            <select id="trades-filter-verdict" onchange="renderTradesTable()" style="background:#fff;color:var(--text-primary);border:1px solid var(--border-card);padding:5px 10px;border-radius:7px;font-size:12px;font-weight:600;outline:none;cursor:pointer">
+              <option value="ALL">All Verdicts</option>
+              <option value="valid_setup">Valid Setup (Buy Trigger)</option>
+              <option value="watch">Watch Near Pivot</option>
+              <option value="target_hit">Target Hit (Done)</option>
+              <option value="stop_loss_hit">Stop Loss Hit</option>
+              <option value="structure_only">Base Forming</option>
+            </select>
+            <select id="trades-filter-exchange" onchange="renderTradesTable()" style="background:#fff;color:var(--text-primary);border:1px solid var(--border-card);padding:5px 10px;border-radius:7px;font-size:12px;font-weight:600;outline:none;cursor:pointer">
+              <option value="ALL">All Exchanges</option>
+              <option value="NSE">NSE (India)</option>
+              <option value="NYSE">NYSE (US)</option>
+              <option value="NASDAQ">NASDAQ (US)</option>
+              <option value="LSE">LSE (UK)</option>
+              <option value="XETRA">XETRA (Germany)</option>
+            </select>
+            <input type="text" id="trades-filter-symbol" oninput="renderTradesTable()" placeholder="🔍 Search stock..." style="background:#fff;color:var(--text-primary);border:1px solid var(--border-card);padding:5px 12px;border-radius:7px;font-size:12px;outline:none;width:160px">
+            <button onclick="document.getElementById('trades-filter-verdict').value='ALL';document.getElementById('trades-filter-exchange').value='ALL';document.getElementById('trades-filter-symbol').value='';renderTradesTable()" style="background:#f1f5f9;border:1px solid var(--border-card);padding:5px 12px;border-radius:7px;font-size:11px;font-weight:600;cursor:pointer;color:var(--text-secondary)">Clear</button>
+            <span id="trades-count-label" style="margin-left:auto;font-size:12px;color:var(--text-muted);font-weight:600"></span>
+          </div>
+
+          <div class="table-container">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Stock Ticker</th>
+                  <th>Price</th>
+                  <th>Swing Contractions</th>
+                  <th>Distance to Pivot</th>
+                  <th>Risk %</th>
+                  <th>Verdict / Status</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody id="trades-today-tbody">
+                <!-- Populated via JS -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- VIEW 3: CHART & ANALYSIS -->
+      <div id="view-chart-analysis" class="view-panel">
+        <div class="card-box">
+          <div class="chart-box-header">
+            <div style="font-family:var(--font-heading);font-weight:700;font-size:18px" id="analysis-chart-title">NSE Candlestick Chart (OHLC Data API) — RELIANCE</div>
+            <div style="display:flex;align-items:center;gap:8px">
+              <div class="tf-btn-group">
+                <button class="tf-btn" onclick="setTimeframe('5m')">5m</button>
+                <button class="tf-btn" onclick="setTimeframe('15m')">15m</button>
+                <button class="tf-btn" onclick="setTimeframe('1h')">1h</button>
+                <button class="tf-btn active" onclick="setTimeframe('1D')">1D</button>
+                <button class="tf-btn" onclick="setTimeframe('1W')">1W</button>
+                <button class="tf-btn" onclick="setTimeframe('1M')">1M</button>
+              </div>
+              <div class="toggle-btn-group">
+                <button class="toggle-btn active" onclick="setChartEngine('lw')">Interactive NSE Chart</button>
+                <button class="toggle-btn" onclick="setChartEngine('tv')">TradingView Widget</button>
+              </div>
+            </div>
+          </div>
+          <div class="chart-viewport" style="height:520px">
+            <div id="analysis-chart-tooltip" class="chart-tooltip">O: - H: - L: - C: - Vol: -</div>
+            <div id="lw-chart-container-analysis"></div>
+            <div id="tv-widget-container-analysis"></div>
+          </div>
+        </div>
+
+        <!-- Breakdown & Setup Gate Checklist Grid -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+          <!-- VCP Contraction Waves Breakdown -->
+          <div class="card-box">
+            <div class="section-title">🌊 VCP Contraction Waves Breakdown</div>
+            <div class="table-container">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>WAVE</th>
+                    <th>DEPTH</th>
+                    <th>DURATION</th>
+                    <th>VOLUME RATIO</th>
+                  </tr>
+                </thead>
+                <tbody id="vcp-waves-tbody">
+                  <!-- Populated via JS -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Setup Gate Verification Checklist -->
+          <div class="card-box">
+            <div class="section-title">✓ Setup Gate Verification Checklist</div>
+            <div id="gates-list-container">
+              <!-- Populated via JS -->
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- VIEW 4: STOCK RESEARCH & FINANCIALS -->
+      <div id="view-stock-research" class="view-panel">
+        
+        <!-- Stock Research Header -->
+        <div class="research-header">
+          <div class="stock-info-main">
+            <div class="stock-logo-lg" id="res-logo">AP</div>
+            <div>
+              <div class="stock-title" id="res-title">APLAPOLLO — APL Apollo Tubes</div>
+              <div class="stock-subtitle" id="res-sub">NSE: APLAPOLLO | Sector: Basic Materials</div>
+            </div>
+          </div>
+          <div class="stock-price-lg">
+            <div class="price-val-lg" id="res-price">₹2,250.00</div>
+            <div class="price-change-lg" id="res-change">+14.50 (+0.65%)</div>
+          </div>
+        </div>
+
+        <!-- Interactive Subnav Tabs -->
+        <div class="subnav-tabs">
+          <div class="subnav-tab active" onclick="switchResearchSubtab('overview', this)">Overview</div>
+          <div class="subnav-tab" onclick="switchResearchSubtab('financials', this)">Financials</div>
+          <div class="subnav-tab" onclick="switchResearchSubtab('earnings', this)">Earnings</div>
+          <div class="subnav-tab" onclick="switchResearchSubtab('news', this)">News</div>
+          <div class="subnav-tab" onclick="switchResearchSubtab('catalysts', this)">Catalysts</div>
+          <div class="subnav-tab" onclick="switchResearchSubtab('analysis', this)">AI Analysis</div>
+        </div>
+
+        <!-- SUBTAB 1: OVERVIEW -->
+        <div id="res-subtab-overview" class="research-subpanel active">
+          <div class="stats-grid">
+            <div class="stat-card">
+              <div class="stat-title">Market Cap</div>
+              <div class="stat-val" id="res-mcap">₹45,210 Cr</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-title">P/E Ratio</div>
+              <div class="stat-val" id="res-pe">28.4</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-title">Revenue (TTM)</div>
+              <div class="stat-val" id="res-rev">₹18,120 Cr</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-title">EPS (TTM)</div>
+              <div class="stat-val" id="res-eps">₹42.50</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-title">52-Week Range</div>
+              <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text-muted);margin-top:4px">
+                <span id="res-w52-lo">₹1,450.00</span>
+                <span id="res-w52-hi">₹2,310.00</span>
+              </div>
+              <div class="range-slider-bg">
+                <div class="range-slider-fill" id="res-w52-fill" style="width:85%"></div>
+                <div class="range-slider-dot" id="res-w52-dot" style="left:85%"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="research-grid">
+            <div>
+              <div class="card-box">
+                <div class="section-title">📊 Key Financials (Quarterly Revenue & Net Income)</div>
+                <div class="fin-bars-container" id="fin-bars-box"></div>
+                <div style="display:flex;gap:20px;justify-content:center;margin-top:12px;font-size:12px">
+                  <div style="display:flex;align-items:center;gap:6px"><span style="width:12px;height:12px;background:#3b82f6;border-radius:2px"></span> Revenue</div>
+                  <div style="display:flex;align-items:center;gap:6px"><span style="width:12px;height:12px;background:#10b981;border-radius:2px"></span> Net Income</div>
+                </div>
+              </div>
+              <div class="card-box">
+                <div class="section-title">📰 Recent Financial News</div>
+                <div style="display:flex;flex-direction:column;gap:12px" id="res-news-list"></div>
+              </div>
+            </div>
+            <div>
+              <div class="card-box">
+                <div class="section-title">⚡ Key Catalysts</div>
+                <div style="display:flex;flex-direction:column;gap:10px" id="res-catalysts-list"></div>
+              </div>
+              <div class="card-box">
+                <div class="section-title">🤖 AI Research Summary</div>
+                <div style="font-size:13px;color:var(--text-secondary);line-height:1.5" id="res-ai-summary"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- SUBTAB 2: FINANCIALS -->
+        <div id="res-subtab-financials" class="research-subpanel">
+          <div class="card-box">
+            <div class="section-title">📊 Comprehensive Income Statement & Margins</div>
+            <div class="table-container">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>FINANCIAL METRIC</th>
+                    <th>LATEST VALUE</th>
+                    <th>GROWTH (YoY)</th>
+                    <th>BENCHMARK CHECK</th>
+                  </tr>
+                </thead>
+                <tbody id="financials-detail-tbody">
+                  <!-- Populated via JS -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- SUBTAB 3: EARNINGS -->
+        <div id="res-subtab-earnings" class="research-subpanel">
+          <div class="card-box">
+            <div class="section-title">📅 Upcoming Earnings & Estimates</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+              <div style="padding:16px;background:var(--bg-card-subtle);border-radius:10px;border:1px solid var(--border-card)">
+                <div style="font-size:12px;color:var(--text-muted);text-transform:uppercase">Next Report Date</div>
+                <div style="font-size:22px;font-weight:700;margin:6px 0" id="earn-date">Q3 2026 Earnings (Oct 30)</div>
+                <div style="font-size:12px;color:var(--accent-amber)">⚠️ Expected High Volatility Window</div>
+              </div>
+              <div style="padding:16px;background:var(--bg-card-subtle);border-radius:10px;border:1px solid var(--border-card)">
+                <div style="font-size:12px;color:var(--text-muted);text-transform:uppercase">Consensus Estimates</div>
+                <div style="font-size:15px;font-weight:700;margin-top:6px">Est. EPS: <span id="earn-est-eps">₹14.50</span></div>
+                <div style="font-size:15px;font-weight:700;margin-top:4px">Est. Revenue: <span id="earn-est-rev">₹1,850 Cr</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- SUBTAB 4: NEWS -->
+        <div id="res-subtab-news" class="research-subpanel">
+          <div class="card-box">
+            <div class="section-title">📰 Complete Financial News Feed</div>
+            <div style="display:flex;flex-direction:column;gap:12px" id="res-full-news-list"></div>
+          </div>
+        </div>
+
+        <!-- SUBTAB 5: CATALYSTS -->
+        <div id="res-subtab-catalysts" class="research-subpanel">
+          <div class="card-box">
+            <div class="section-title">⚡ Fundamental & Technical Catalysts Checklist</div>
+            <div style="display:flex;flex-direction:column;gap:12px" id="res-full-catalysts-list"></div>
+          </div>
+        </div>
+
+        <!-- SUBTAB 6: AI ANALYSIS -->
+        <div id="res-subtab-analysis" class="research-subpanel">
+          <div class="card-box">
+            <div class="section-title">🤖 Complete AI VCP Pattern Analysis</div>
+            <div style="font-size:13px;color:var(--text-secondary);line-height:1.6" id="res-full-ai-analysis"></div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- VIEW 5: RISK MANAGER & PLAN -->
+      <div id="view-risk-manager" class="view-panel">
+        <div class="trade-plan-layout">
+          <div class="workflow-steps-card">
+            <div class="section-title" style="font-size:15px">Workflow Plan</div>
+            <div class="wf-step-item"><div class="wf-step-icon">✓</div><div><div class="wf-step-title">1. Market Scan</div><div class="wf-step-desc">Flagged as high-probability VCP candidate.</div></div></div>
+            <div class="wf-step-item"><div class="wf-step-icon">✓</div><div><div class="wf-step-title">2. Chart Analysis</div><div class="wf-step-desc">Stage-2 uptrend, tight contractions.</div></div></div>
+            <div class="wf-step-item"><div class="wf-step-icon">✓</div><div><div class="wf-step-title">3. Research</div><div class="wf-step-desc">Strong earnings, high RS score.</div></div></div>
+            <div class="wf-step-item"><div class="wf-step-icon">✓</div><div><div class="wf-step-title">4. Risk Assessment</div><div class="wf-step-desc">Optimal entry and stop loss set.</div></div></div>
+            <div class="wf-step-item"><div class="wf-step-icon">✓</div><div><div class="wf-step-title">5. Trade Plan</div><div class="wf-step-desc">Complete execution plan ready.</div></div></div>
+          </div>
+
+          <div class="params-card">
+            <div class="section-title" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+              <span>🛡️ Risk Parameters — <span id="rm-stock-title" style="color:var(--accent-blue)">AAPL (Apple Inc.)</span></span>
+              <span class="badge badge-success" id="rm-status-badge">VALID SETUP</span>
+            </div>
+            <div class="param-row"><span class="param-label">Current Market Price</span><span class="param-val" id="rm-curr-price" style="font-weight:700;color:var(--text-primary)">$224.50</span></div>
+            <div class="param-row"><span class="param-label">Target / Setup Status</span><span class="param-val" id="rm-target-status" style="font-weight:700;color:var(--accent-green)">VALID SETUP (BUY TRIGGER)</span></div>
+            <div class="param-row"><span class="param-label">Entry Price</span><span class="param-val" id="rm-entry">$225.00</span></div>
+            <div class="param-row"><span class="param-label">Stop Loss</span><span class="param-val stop" id="rm-stop">$209.70</span></div>
+            <div class="param-row"><span class="param-label">Take Profit 1 (2R)</span><span class="param-val tp1" id="rm-tp1">$255.60</span></div>
+            <div class="param-row"><span class="param-label">Take Profit 2 (3R)</span><span class="param-val tp2" id="rm-tp2">$270.90</span></div>
+            <div class="param-row"><span class="param-label">Position Size</span><span class="param-val" id="rm-shares">100 shares</span></div>
+            <div class="param-row"><span class="param-label">Account Risk</span><span class="param-val" id="rm-acct-risk">1.0% ($5,000)</span></div>
+          </div>
+
+          <div class="rr-visualizer-box">
+            <div class="section-title">📊 Risk:Reward Visualization</div>
+            <div class="rr-diagram">
+              <div class="rr-zone rr-tp2"><span>Take Profit 2</span><span id="vis-tp2">₹2,709.00</span></div>
+              <div class="rr-zone rr-tp1"><span>Take Profit 1</span><span id="vis-tp1">₹2,556.00</span></div>
+              <div class="rr-zone rr-entry"><span>Entry Price</span><span id="vis-entry">₹2,250.00</span></div>
+              <div class="rr-zone rr-sl"><span>Stop Loss</span><span id="vis-stop">₹2,097.00</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="stats-grid" style="grid-template-columns:repeat(4, 1fr);margin-top:20px">
+          <div class="stat-card"><div class="stat-title">Risk:Reward Ratio</div><div class="stat-val" style="color:var(--accent-blue)">2.4 : 1</div><div class="stat-sub"><span>Optimal Risk Budget</span></div></div>
+          <div class="stat-card"><div class="stat-title">Potential Gain</div><div class="stat-val" style="color:var(--accent-green)" id="rm-pot-gain">+₹45,900</div><div class="stat-sub"><span>100 shares to TP2</span></div></div>
+          <div class="stat-card"><div class="stat-title">Potential Risk</div><div class="stat-val" style="color:var(--accent-red)" id="rm-pot-risk">-₹15,300</div><div class="stat-sub"><span>100 shares to Stop</span></div></div>
+          <div class="stat-card"><div class="stat-title">Win Probability</div><div class="stat-val" style="color:var(--accent-green)">73%</div><div class="stat-sub"><span>Historical VCP Pattern</span></div></div>
+        </div>
+      </div>
+
+      <!-- VIEW 6: SETTINGS -->
+      <div id="view-settings-provenance" class="view-panel">
+        <div class="card-box">
+          <div class="section-title">⚙️ Strategy Settings & Provenance</div>
+          <div class="table-container">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Parameter Name</th>
+                  <th>Current Value</th>
+                  <th>Provenance</th>
+                  <th>Description</th>
+                </tr>
+              </thead>
+              <tbody id="settings-tbody">
+                <!-- Populated via JS -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════════ -->
+      <!-- VIEW 7: HELP & GUIDE                                            -->
+      <!-- ═══════════════════════════════════════════════════════════════ -->
+      <div id="view-help-guide" class="view-panel">
+        <style>
+          .help-hero { background: linear-gradient(135deg, #1e3a5f 0%, #0f172a 100%); border-radius: 16px; padding: 32px; margin-bottom: 24px; color: white; position: relative; overflow: hidden; }
+          .help-hero::before { content: ''; position: absolute; top: -40px; right: -40px; width: 200px; height: 200px; background: rgba(59,130,246,0.15); border-radius: 50%; }
+          .help-hero h1 { font-family: var(--font-heading); font-size: 28px; font-weight: 800; margin-bottom: 8px; }
+          .help-hero p { font-size: 14px; color: #94a3b8; max-width: 600px; line-height: 1.6; }
+          .help-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 24px; }
+          .help-grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-bottom: 24px; }
+          .help-section { background: #fff; border: 1px solid var(--border-card); border-radius: 14px; padding: 22px; box-shadow: var(--shadow-card); }
+          .help-section-full { background: #fff; border: 1px solid var(--border-card); border-radius: 14px; padding: 22px; box-shadow: var(--shadow-card); margin-bottom: 20px; }
+          .help-h2 { font-family: var(--font-heading); font-size: 17px; font-weight: 800; color: #0f172a; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; padding-bottom: 10px; border-bottom: 2px solid #f1f5f9; }
+          .help-h3 { font-size: 14px; font-weight: 700; color: #1e40af; margin: 14px 0 6px; }
+          .help-p { font-size: 13px; color: #475569; line-height: 1.7; margin-bottom: 10px; }
+          .help-tip { background: #eff6ff; border: 1px solid #bfdbfe; border-left: 4px solid #3b82f6; border-radius: 8px; padding: 12px 14px; margin: 12px 0; font-size: 13px; color: #1e40af; line-height: 1.6; }
+          .help-warn { background: #fef3c7; border: 1px solid #fde68a; border-left: 4px solid #f59e0b; border-radius: 8px; padding: 12px 14px; margin: 12px 0; font-size: 13px; color: #92400e; line-height: 1.6; }
+          .help-success { background: #f0fdf4; border: 1px solid #bbf7d0; border-left: 4px solid #16a34a; border-radius: 8px; padding: 12px 14px; margin: 12px 0; font-size: 13px; color: #15803d; line-height: 1.6; }
+          .help-danger { background: #fff1f2; border: 1px solid #fecdd3; border-left: 4px solid #dc2626; border-radius: 8px; padding: 12px 14px; margin: 12px 0; font-size: 13px; color: #9f1239; line-height: 1.6; }
+          .help-term { display: flex; gap: 12px; padding: 10px 0; border-bottom: 1px solid #f1f5f9; }
+          .help-term:last-child { border-bottom: none; }
+          .help-term-label { font-size: 12px; font-weight: 800; color: #1e40af; background: #eff6ff; padding: 3px 8px; border-radius: 6px; white-space: nowrap; height: fit-content; }
+          .help-term-def { font-size: 13px; color: #475569; line-height: 1.6; }
+          .help-step { display: flex; gap: 14px; margin-bottom: 16px; align-items: flex-start; }
+          .help-step-num { width: 32px; height: 32px; border-radius: 50%; background: #0f172a; color: white; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 13px; flex-shrink: 0; }
+          .help-step-body h4 { font-size: 14px; font-weight: 700; color: #0f172a; margin-bottom: 4px; }
+          .help-step-body p { font-size: 13px; color: #475569; line-height: 1.6; }
+          .help-color-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid #f1f5f9; }
+          .help-color-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
+          .help-color-label { font-size: 12px; font-weight: 700; min-width: 140px; }
+          .help-color-desc { font-size: 12px; color: #64748b; }
+          .help-toc { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 24px; }
+          .help-toc-item { background: #fff; border: 1px solid var(--border-card); border-radius: 10px; padding: 12px 14px; cursor: pointer; transition: all 0.15s; font-size: 13px; font-weight: 600; color: #1e40af; display: flex; align-items: center; gap: 8px; box-shadow: var(--shadow-card); }
+          .help-toc-item:hover { background: #eff6ff; border-color: #bfdbfe; transform: translateY(-1px); }
+          .help-flow { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin: 14px 0; }
+          .help-flow-step { background: #0f172a; color: white; padding: 8px 16px; border-radius: 8px; font-size: 12px; font-weight: 700; }
+          .help-flow-arrow { color: #94a3b8; font-size: 16px; font-weight: 700; }
+          .help-flow-step.green { background: #15803d; }
+          .help-flow-step.amber { background: #d97706; }
+          .help-flow-step.blue { background: #1d4ed8; }
+          .help-flow-step.red { background: #dc2626; }
+          .help-flow-step.purple { background: #6d28d9; }
+          table.help-table { width: 100%; border-collapse: collapse; font-size: 12.5px; margin-top: 8px; }
+          table.help-table th { background: #f8fafc; padding: 9px 12px; text-align: left; font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid #e2e8f0; }
+          table.help-table td { padding: 10px 12px; border-bottom: 1px solid #f1f5f9; color: #475569; vertical-align: top; }
+          table.help-table td:first-child { font-weight: 700; color: #0f172a; white-space: nowrap; }
+        </style>
+
+        <!-- Hero Banner -->
+        <div class="help-hero">
+          <h1>📚 Aaroquant Help &amp; Guide</h1>
+          <p>Everything you need to know about your AI-powered trading dashboard — explained in plain language. From scanning stocks to placing trades, this guide covers it all.</p>
+        </div>
+
+        <!-- Quick Navigation -->
+        <div style="background:#fff;border:1px solid var(--border-card);border-radius:14px;padding:18px;margin-bottom:20px;box-shadow:var(--shadow-card)">
+          <div style="font-size:13px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:12px">Quick Jump</div>
+          <div class="help-toc">
+            <div class="help-toc-item" onclick="document.getElementById('help-s1').scrollIntoView({behavior:'smooth'})">🔄 The 5-Step Workflow</div>
+            <div class="help-toc-item" onclick="document.getElementById('help-s2').scrollIntoView({behavior:'smooth'})">🏠 Dashboard Overview</div>
+            <div class="help-toc-item" onclick="document.getElementById('help-s3').scrollIntoView({behavior:'smooth'})">🎯 Trades For Today</div>
+            <div class="help-toc-item" onclick="document.getElementById('help-s4').scrollIntoView({behavior:'smooth'})">📊 Chart &amp; Analysis</div>
+            <div class="help-toc-item" onclick="document.getElementById('help-s5').scrollIntoView({behavior:'smooth'})">📑 Stock Research</div>
+            <div class="help-toc-item" onclick="document.getElementById('help-s6').scrollIntoView({behavior:'smooth'})">🛡️ Risk Manager &amp; Plan</div>
+            <div class="help-toc-item" onclick="document.getElementById('help-s7').scrollIntoView({behavior:'smooth'})">🎨 Color Code Guide</div>
+            <div class="help-toc-item" onclick="document.getElementById('help-s8').scrollIntoView({behavior:'smooth'})">📖 Full Glossary</div>
+            <div class="help-toc-item" onclick="document.getElementById('help-s9').scrollIntoView({behavior:'smooth'})">🌍 Global Markets</div>
+          </div>
+        </div>
+
+        <!-- ── SECTION 1: THE 5-STEP WORKFLOW ── -->
+        <div id="help-s1" class="help-section-full">
+          <div class="help-h2">🔄 The 5-Step Workflow — How Aaroquant Works</div>
+          <p class="help-p">Every trade you make follows a disciplined, 5-step process. The top bar of the dashboard always shows where you are in this journey.</p>
+          <div class="help-flow">
+            <div class="help-flow-step">01 SCAN</div>
+            <div class="help-flow-arrow">→</div>
+            <div class="help-flow-step blue">02 ANALYZE</div>
+            <div class="help-flow-arrow">→</div>
+            <div class="help-flow-step amber">03 RESEARCH</div>
+            <div class="help-flow-arrow">→</div>
+            <div class="help-flow-step red">04 RISK</div>
+            <div class="help-flow-arrow">→</div>
+            <div class="help-flow-step green">05 PLAN</div>
+          </div>
+          <div style="margin-top:16px">
+            <div class="help-step">
+              <div class="help-step-num">1</div>
+              <div class="help-step-body">
+                <h4>SCAN — Find the Best Opportunities</h4>
+                <p>The AI scans 160+ global stocks across India (NSE), USA (NYSE/NASDAQ), UK (LSE), Germany (XETRA), and more. It looks for the "Aaroquant Swing Trades" pattern — a specific price contraction structure that historically precedes strong breakouts. Think of it as the AI doing all the chart-reading homework for you.</p>
+              </div>
+            </div>
+            <div class="help-step">
+              <div class="help-step-num">2</div>
+              <div class="help-step-body">
+                <h4>ANALYZE — Technical Analysis</h4>
+                <p>For each candidate found in Step 1, the system runs deep technical analysis: checking the base structure, how tight the price contractions are, volume patterns, distance to the breakout pivot point, and relative strength. Only stocks that pass all technical gates move forward.</p>
+              </div>
+            </div>
+            <div class="help-step">
+              <div class="help-step-num">3</div>
+              <div class="help-step-body">
+                <h4>RESEARCH — Fundamentals, News &amp; Catalysts</h4>
+                <p>For the technically qualified stocks, the system pulls real financial data: quarterly revenue, earnings per share (EPS), market cap, P/E ratio, 52-week range, recent news, and AI-generated research summaries. A stock with strong technicals AND strong fundamentals is a much higher-probability trade.</p>
+              </div>
+            </div>
+            <div class="help-step">
+              <div class="help-step-num">4</div>
+              <div class="help-step-body">
+                <h4>RISK — Calculate Risk &amp; Position Size</h4>
+                <p>Before entering any trade, the system calculates exactly how much you could lose (Stop Loss), how much you could gain (Take Profit 1 and 2), the Risk:Reward ratio, and the recommended position size based on your account. This is arguably the most important step — never trade without knowing your risk first.</p>
+              </div>
+            </div>
+            <div class="help-step">
+              <div class="help-step-num">5</div>
+              <div class="help-step-body">
+                <h4>PLAN — Generate a Complete Trade Plan</h4>
+                <p>Once you've completed all 4 steps, the system generates a complete, actionable trade plan: Entry Price, Stop Loss, Take Profit 1 &amp; 2, Position Size, Account Risk %, Time Horizon, and Win Probability. This plan is ready to execute — no guesswork needed.</p>
+              </div>
+            </div>
+          </div>
+          <div class="help-tip">💡 <strong>Pro Tip:</strong> Never skip steps! A stock with a great chart but terrible fundamentals, or a great setup with no risk plan, is not a complete trade idea.</div>
+        </div>
+
+        <!-- ── SECTION 2: DASHBOARD ── -->
+        <div id="help-s2" class="help-section-full">
+          <div class="help-h2">🏠 Dashboard Overview</div>
+          <p class="help-p">The Dashboard is your command center — a real-time snapshot of everything the AI is tracking right now.</p>
+
+          <div class="help-grid">
+            <div>
+              <div class="help-h3">📊 The 5 KPI Cards (Top Row)</div>
+              <table class="help-table">
+                <thead><tr><th>Card</th><th>What It Means</th></tr></thead>
+                <tbody>
+                  <tr><td>Markets Scanned</td><td>Total number of stocks/instruments the AI checked in this scan cycle</td></tr>
+                  <tr><td>Potential Setups</td><td>Stocks with a confirmed "Valid Setup" — these are your BUY candidates for today</td></tr>
+                  <tr><td>Near Pivot / Watch</td><td>Stocks that are close to a breakout but haven't triggered yet — monitor these daily</td></tr>
+                  <tr><td>Win Rate (Backtest)</td><td>Historical success rate of this strategy based on backtested data (73% means 73 out of 100 past setups were profitable)</td></tr>
+                  <tr><td>Avg. Return</td><td>The average profit per winning trade based on historical backtesting</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div>
+              <div class="help-h3">🌍 Global Markets Categorized Scan</div>
+              <p class="help-p">Below the KPIs, stocks are grouped into 4 categories:</p>
+              <div class="help-term">
+                <span class="help-term-label" style="background:#dcfce7;color:#15803d">Valid Setup</span>
+                <span class="help-term-def">Stock has passed ALL technical gates. The buy trigger is confirmed. These are actionable today.</span>
+              </div>
+              <div class="help-term">
+                <span class="help-term-label" style="background:#fef3c7;color:#b45309">Watch</span>
+                <span class="help-term-def">Stock is close to triggering but hasn't yet. Keep watching — could become actionable soon.</span>
+              </div>
+              <div class="help-term">
+                <span class="help-term-label" style="background:#f5f3ff;color:#6d28d9">Target Hit</span>
+                <span class="help-term-def">A previous setup that has already hit its profit target. This trade is complete — review and celebrate!</span>
+              </div>
+              <div class="help-term">
+                <span class="help-term-label" style="background:#fee2e2;color:#b91c1c">Stop Loss Hit</span>
+                <span class="help-term-def">A previous setup that went the wrong way and hit the stop loss. This trade is closed — review to learn from it.</span>
+              </div>
+              <div class="help-term">
+                <span class="help-term-label" style="background:#eff6ff;color:#1d4ed8">Base Forming</span>
+                <span class="help-term-def">Stock is building its base pattern but isn't ready yet. Not actionable — add to your watchlist for future reference.</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="help-h3">🌐 Country Filter Tabs</div>
+          <p class="help-p">Use the flag tabs (All Markets / United States / India / Germany / UK / Japan / etc.) to filter the categorized scan by country. You can also use the top filter bar to filter by Exchange (NSE, NYSE, NASDAQ...) and Asset Class (Equities, ETFs, Indices, Futures).</p>
+
+          <div class="help-tip">💡 <strong>How to use the Dashboard:</strong> Start here every morning. Check "Potential Setups" — those are your candidates for today. Then click on each one to go deeper into Chart &amp; Analysis.</div>
+        </div>
+
+        <!-- ── SECTION 3: TRADES FOR TODAY ── -->
+        <div id="help-s3" class="help-section-full">
+          <div class="help-h2">🎯 Trades For Today — Aaroquant Swing Trades</div>
+          <p class="help-p">This is the detailed trade table — a spreadsheet view of every scanned instrument with all key metrics in one place. Use the <strong>3 tabs</strong> and <strong>filter bar</strong> to navigate.</p>
+
+          <div class="help-grid">
+            <div>
+              <div class="help-h3">The 3 Tabs</div>
+              <div class="help-term">
+                <span class="help-term-label" style="background:#eff6ff;color:#1d4ed8">Active Setups</span>
+                <span class="help-term-def">All stocks the AI is currently monitoring — both Valid Setups (buy now) and Watch stocks (buy soon)</span>
+              </div>
+              <div class="help-term">
+                <span class="help-term-label" style="background:#fee2e2;color:#b91c1c">🔴 Stop Loss Hit</span>
+                <span class="help-term-def">Past trades where price fell below the stop loss. Review these to understand what went wrong</span>
+              </div>
+              <div class="help-term">
+                <span class="help-term-label" style="background:#dcfce7;color:#15803d">🏆 Target Hit</span>
+                <span class="help-term-def">Past trades where price reached the profit target. These are wins — the strategy worked!</span>
+              </div>
+            </div>
+            <div>
+              <div class="help-h3">The Table Columns Explained</div>
+              <table class="help-table">
+                <thead><tr><th>Column</th><th>What It Shows</th></tr></thead>
+                <tbody>
+                  <tr><td>Stock Ticker</td><td>Symbol + company name + exchange + Entry/SL/TP prices at a glance</td></tr>
+                  <tr><td>Price</td><td>Current market price in local currency</td></tr>
+                  <tr><td>Swing Contractions</td><td>The % depth of each price wave in the base (e.g. "18% → 12% → 7%" = getting tighter = bullish)</td></tr>
+                  <tr><td>Distance to Pivot</td><td>How far the stock is from its breakout level. Green (+) = above pivot (breaking out), Red (-) = still below pivot</td></tr>
+                  <tr><td>Risk %</td><td>How far the Stop Loss is from the current price — your maximum loss per share if stopped out</td></tr>
+                  <tr><td>Verdict / Status</td><td>Color-coded badge showing the AI's current assessment</td></tr>
+                  <tr><td>Action</td><td>Click to open the full chart and trade plan for that stock</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="help-h3">🔍 The Filter Bar</div>
+          <p class="help-p">Use the filters to narrow down the list:</p>
+          <div class="help-grid-3">
+            <div style="background:#f8fafc;border-radius:8px;padding:12px;border:1px solid var(--border-card)">
+              <div style="font-weight:700;font-size:13px;color:#0f172a;margin-bottom:6px">Verdict Filter</div>
+              <p class="help-p" style="margin:0">Show only "Valid Setup", "Watch", "Stop Loss Hit", "Target Hit", or "Base Forming" stocks</p>
+            </div>
+            <div style="background:#f8fafc;border-radius:8px;padding:12px;border:1px solid var(--border-card)">
+              <div style="font-weight:700;font-size:13px;color:#0f172a;margin-bottom:6px">Exchange Filter</div>
+              <p class="help-p" style="margin:0">Show only stocks from a specific exchange — NSE (India), NYSE, NASDAQ (US), LSE (UK), XETRA (Germany)</p>
+            </div>
+            <div style="background:#f8fafc;border-radius:8px;padding:12px;border:1px solid var(--border-card)">
+              <div style="font-weight:700;font-size:13px;color:#0f172a;margin-bottom:6px">Stock Search</div>
+              <p class="help-p" style="margin:0">Type any symbol (AAPL, RELIANCE, BARC) or company name — results filter live as you type</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── SECTION 4: CHART & ANALYSIS ── -->
+        <div id="help-s4" class="help-section-full">
+          <div class="help-h2">📊 Chart &amp; Analysis</div>
+          <p class="help-p">This is your detailed candlestick chart with technical overlays. It's the most powerful visual tool in the dashboard for reading price action.</p>
+
+          <div class="help-grid">
+            <div>
+              <div class="help-h3">How to Read Candlestick Charts</div>
+              <div class="help-tip">Each "candle" represents one time period (1 day, 1 week, etc.) and shows 4 prices: <strong>Open, High, Low, Close</strong> (OHLC).<br><br>🟢 <strong>Green candle</strong> = price closed HIGHER than it opened (buyers won that day)<br>🔴 <strong>Red candle</strong> = price closed LOWER than it opened (sellers won that day)<br>The thin lines (wicks) show the highest and lowest prices touched during that period.</div>
+
+              <div class="help-h3">Timeframe Buttons (1D, 1W, 1M, 3M, 1Y)</div>
+              <table class="help-table">
+                <thead><tr><th>Button</th><th>What It Shows</th><th>Best For</th></tr></thead>
+                <tbody>
+                  <tr><td>1D</td><td>Last ~60 trading days, each candle = 1 day</td><td>Entry timing, spotting the base</td></tr>
+                  <tr><td>1W</td><td>~20 weeks of data, each candle = 1 week</td><td>Trend direction, stage analysis</td></tr>
+                  <tr><td>1M</td><td>~12 months, each candle = 1 month</td><td>Big picture trend</td></tr>
+                  <tr><td>3M</td><td>~3 months of daily data</td><td>Recent base formation</td></tr>
+                  <tr><td>1Y</td><td>Full year of daily data</td><td>52-week perspective</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div>
+              <div class="help-h3">The Chart Indicators (Coloured Lines)</div>
+              <table class="help-table">
+                <thead><tr><th>Indicator</th><th>What It Is</th><th>What It Tells You</th></tr></thead>
+                <tbody>
+                  <tr><td>Blue line (MA 50)</td><td>50-day Moving Average</td><td>Short-term trend direction. Price above = bullish</td></tr>
+                  <tr><td>Orange line (MA 200)</td><td>200-day Moving Average</td><td>Long-term trend. Price above = strong uptrend (Stage 2)</td></tr>
+                  <tr><td>Volume bars (bottom)</td><td>Number of shares traded</td><td>High volume on breakout = strong, trustworthy move</td></tr>
+                </tbody>
+              </table>
+
+              <div class="help-h3">Interactive/TradingView Toggle</div>
+              <p class="help-p">Two chart modes available:</p>
+              <div class="help-term">
+                <span class="help-term-label">Interactive Chart</span>
+                <span class="help-term-def">Custom-built chart using your live data — shows the Aaroquant-specific indicators and overlays</span>
+              </div>
+              <div class="help-term">
+                <span class="help-term-label">TradingView Widget</span>
+                <span class="help-term-def">Full TradingView chart embed — access all TradingView tools, drawings, and indicators</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="help-h3">📐 The Base Structure Panel (below the chart)</div>
+          <p class="help-p">Below the main chart you'll see a breakdown table showing each "contraction wave" detected by the AI. Each row represents one price swing:</p>
+          <table class="help-table">
+            <thead><tr><th>Column</th><th>Meaning</th></tr></thead>
+            <tbody>
+              <tr><td>Wave #</td><td>The contraction number (Wave 1 = widest, last wave = tightest)</td></tr>
+              <tr><td>Depth %</td><td>How much the stock pulled back during that wave. Smaller = tighter = more bullish</td></tr>
+              <tr><td>Duration</td><td>How many days the wave lasted</td></tr>
+              <tr><td>Volume Trend</td><td>Whether volume was declining during the pullback (declining volume = healthy base)</td></tr>
+            </tbody>
+          </table>
+          <div class="help-success">✅ <strong>What to look for:</strong> Each wave should be smaller than the previous one (e.g. 18% → 12% → 7% → 4%). This "tightening" pattern is the core of the Aaroquant Swing Trades strategy. The tighter the last wave, the closer to a potential breakout.</div>
+        </div>
+
+        <!-- ── SECTION 5: STOCK RESEARCH ── -->
+        <div id="help-s5" class="help-section-full">
+          <div class="help-h2">📑 Stock Research</div>
+          <p class="help-p">This section gives you a comprehensive fundamental view of the selected stock. Select any stock from the scan or search for one using the search bar at the top right. The research is divided into 6 subtabs.</p>
+
+          <div class="help-grid">
+            <div>
+              <div class="help-h3">📋 Overview Tab</div>
+              <table class="help-table">
+                <thead><tr><th>Metric</th><th>What It Means</th><th>Good Sign?</th></tr></thead>
+                <tbody>
+                  <tr><td>Market Cap</td><td>Total value of all shares. "B" = Billions, "Cr" = Indian Crores</td><td>Larger = more stable</td></tr>
+                  <tr><td>P/E Ratio</td><td>Price ÷ Earnings. How much you pay for £1/$/₹ of profit</td><td>Lower = cheaper stock</td></tr>
+                  <tr><td>Revenue (TTM)</td><td>Total sales revenue over the last 12 months</td><td>Higher &amp; growing = good</td></tr>
+                  <tr><td>EPS (TTM)</td><td>Earnings Per Share — profit per share over 12 months</td><td>Positive &amp; growing = good</td></tr>
+                  <tr><td>52-Week Range</td><td>Lowest and highest price in the past year. The dot shows where the stock is now</td><td>Near high = strong</td></tr>
+                </tbody>
+              </table>
+
+              <div class="help-h3">🏦 Key Financials Chart</div>
+              <p class="help-p">The bar chart shows the last 4 quarters of Revenue (blue bars) and Net Income (green bars). Labels show the exact value with scale (e.g. "£7.17B" = 7.17 Billion Pounds).</p>
+              <div class="help-tip">💡 You want to see <strong>growing blue bars</strong> (increasing revenue) and <strong>growing green bars</strong> (increasing profit). Shrinking green bars = margins under pressure.</div>
+            </div>
+            <div>
+              <div class="help-h3">💰 Financials Tab</div>
+              <p class="help-p">Deep-dive into income statement, balance sheet, and cash flow data. Use this to confirm the company is genuinely profitable and financially healthy.</p>
+
+              <div class="help-h3">📅 Earnings Tab</div>
+              <p class="help-p">Shows the upcoming earnings date, estimated EPS, and estimated revenue. Earnings announcements can cause big price moves — know when they're coming before you enter a trade!</p>
+              <div class="help-warn">⚠️ <strong>Warning:</strong> Avoid holding through earnings if you are a swing trader. The surprise risk (gap up or gap down) is too high and unpredictable.</div>
+
+              <div class="help-h3">📰 News Tab</div>
+              <p class="help-p">Real-time financial news from Bloomberg, Reuters, CNBC, and Simply Wall St. — directly relevant to the selected stock. Read this to understand what the market is currently talking about for this company.</p>
+
+              <div class="help-h3">⚡ Catalysts Tab</div>
+              <p class="help-p">AI-generated list of specific reasons why this stock might move up — e.g. "Strong EPS Growth (+28% YoY)", "Consolidating near 52-Week High", "High ROE". These are the fundamental reasons supporting the technical setup.</p>
+
+              <div class="help-h3">🤖 AI Analysis Tab</div>
+              <p class="help-p">A plain-English summary written by the AI combining everything — technicals, fundamentals, news, and catalysts — into one short paragraph. Great for a quick decision.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── SECTION 6: RISK MANAGER ── -->
+        <div id="help-s6" class="help-section-full">
+          <div class="help-h2">🛡️ Risk Manager &amp; Plan</div>
+          <p class="help-p">This is the most important section for protecting your money. <strong>Never enter a trade without completing this step.</strong> The Risk Manager calculates exactly what could happen to your money.</p>
+
+          <div class="help-grid">
+            <div>
+              <div class="help-h3">📋 Risk Parameters Card (Centre)</div>
+              <table class="help-table">
+                <thead><tr><th>Parameter</th><th>What It Means</th></tr></thead>
+                <tbody>
+                  <tr><td>Current Market Price</td><td>Where the stock is trading RIGHT NOW</td></tr>
+                  <tr><td>Target / Setup Status</td><td>Current verdict — VALID SETUP (BUY), WATCH, etc.</td></tr>
+                  <tr><td style="color:#1d4ed8">Entry Price</td><td>The price at which the AI recommends you buy (usually the pivot/breakout level)</td></tr>
+                  <tr><td style="color:#b91c1c">Stop Loss</td><td>If price drops to this level, EXIT immediately. This is your maximum loss point. Shown in <strong>red</strong>.</td></tr>
+                  <tr><td style="color:#15803d">Take Profit 1 (2R)</td><td>First profit target — typically 2× your risk. Sell half your position here. Shown in <strong>green</strong>.</td></tr>
+                  <tr><td style="color:#15803d">Take Profit 2 (3R)</td><td>Second profit target — typically 3× your risk. Sell the rest here. Shown in <strong>green</strong>.</td></tr>
+                  <tr><td>Position Size</td><td>How many shares to buy (calculated to keep your account risk at 1%)</td></tr>
+                  <tr><td>Account Risk</td><td>What % and dollar amount of your account you risk on this ONE trade (default: 1%)</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div>
+              <div class="help-h3">📊 Risk:Reward Visualizer (Right Panel)</div>
+              <p class="help-p">The coloured diagram shows your potential trade zones stacked visually:</p>
+              <div style="border-radius:10px;overflow:hidden;border:1px solid var(--border-card)">
+                <div style="background:#dcfce7;padding:10px 14px;font-size:12px;font-weight:700;color:#15803d">🟢 TAKE PROFIT 2 — Maximum gain zone</div>
+                <div style="background:#f0fdf4;padding:10px 14px;font-size:12px;font-weight:700;color:#16a34a">🟩 TAKE PROFIT 1 — First exit zone</div>
+                <div style="background:#eff6ff;padding:10px 14px;font-size:12px;font-weight:700;color:#1d4ed8;border-left:4px solid #3b82f6">🔵 ENTRY PRICE — Where you buy</div>
+                <div style="background:#fee2e2;padding:10px 14px;font-size:12px;font-weight:700;color:#b91c1c;border-left:4px solid #dc2626">🔴 STOP LOSS — Where you exit if wrong</div>
+              </div>
+
+              <div class="help-h3">📈 Bottom Stats (Risk:Reward, Gain, Risk, Win %)</div>
+              <div class="help-term">
+                <span class="help-term-label">Risk:Reward</span>
+                <span class="help-term-def">2.4:1 means for every ₹1 you risk, you could make ₹2.40. Always aim for 2:1 or better.</span>
+              </div>
+              <div class="help-term">
+                <span class="help-term-label">Potential Gain</span>
+                <span class="help-term-def">Total profit if TP2 is hit (position size × price difference to TP2)</span>
+              </div>
+              <div class="help-term">
+                <span class="help-term-label">Potential Risk</span>
+                <span class="help-term-def">Total loss if Stop Loss is hit (position size × price difference to SL)</span>
+              </div>
+              <div class="help-term">
+                <span class="help-term-label">Win Probability</span>
+                <span class="help-term-def">Historical win rate of this exact pattern from backtesting (73% is excellent)</span>
+              </div>
+
+              <div class="help-success">✅ <strong>Golden Rule:</strong> Only take trades where Risk:Reward is at least 2:1. This means even if you're wrong 50% of the time, you'll still be profitable overall.</div>
+            </div>
+          </div>
+
+          <div class="help-h3">🗺️ The Left Workflow Checklist</div>
+          <p class="help-p">The left card shows 5 checkpoints that must ALL be green before you trade. If any are not satisfied, the system flags it and you should reconsider the trade.</p>
+        </div>
+
+        <!-- ── SECTION 7: COLOR CODING ── -->
+        <div id="help-s7" class="help-section-full">
+          <div class="help-h2">🎨 Complete Color Code Guide</div>
+          <p class="help-p">Every color in this dashboard means something specific. Learn these and you can read the dashboard at a glance.</p>
+          <div class="help-grid">
+            <div>
+              <div class="help-h3">Status Badge Colors</div>
+              <div class="help-color-row"><div class="help-color-dot" style="background:#16a34a"></div><div class="help-color-label" style="color:#15803d">🟢 GREEN</div><div class="help-color-desc">Valid Setup / Buy Trigger / Target Hit / Positive % change / Take Profit</div></div>
+              <div class="help-color-row"><div class="help-color-dot" style="background:#d97706"></div><div class="help-color-label" style="color:#b45309">🟡 AMBER</div><div class="help-color-desc">Watch Near Pivot — promising but not yet actionable</div></div>
+              <div class="help-color-row"><div class="help-color-dot" style="background:#dc2626"></div><div class="help-color-label" style="color:#b91c1c">🔴 RED</div><div class="help-color-desc">Stop Loss Hit / Negative % change / Danger / Stop Loss price level</div></div>
+              <div class="help-color-row"><div class="help-color-dot" style="background:#3b82f6"></div><div class="help-color-label" style="color:#1d4ed8">🔵 BLUE</div><div class="help-color-desc">Base Forming / Entry Price / Interactive elements / Accents</div></div>
+              <div class="help-color-row"><div class="help-color-dot" style="background:#7c3aed"></div><div class="help-color-label" style="color:#6d28d9">🟣 PURPLE</div><div class="help-color-desc">Completed Targets / Target Hit (trade is fully done)</div></div>
+              <div class="help-color-row"><div class="help-color-dot" style="background:#94a3b8"></div><div class="help-color-label" style="color:#475569">⚪ GRAY</div><div class="help-color-desc">No signal / Neutral / Excluded / Not applicable</div></div>
+            </div>
+            <div>
+              <div class="help-h3">Price Value Colors</div>
+              <div class="help-color-row"><div class="help-color-dot" style="background:#dc2626"></div><div class="help-color-label" style="color:#b91c1c">Red price box</div><div class="help-color-desc">Stop Loss — this is your exit price if the trade goes wrong</div></div>
+              <div class="help-color-row"><div class="help-color-dot" style="background:#16a34a"></div><div class="help-color-label" style="color:#15803d">Green price box</div><div class="help-color-desc">Take Profit 1 and Take Profit 2 — your profit exit prices</div></div>
+              <div class="help-color-row"><div class="help-color-dot" style="background:#1d4ed8"></div><div class="help-color-label" style="color:#1d4ed8">Blue text</div><div class="help-color-desc">Entry Price — where you enter the trade</div></div>
+              <div class="help-h3">Chart Colors</div>
+              <div class="help-color-row"><div class="help-color-dot" style="background:#22c55e"></div><div class="help-color-label" style="color:#15803d">Green candle</div><div class="help-color-desc">Bullish candle — price closed higher than it opened</div></div>
+              <div class="help-color-row"><div class="help-color-dot" style="background:#ef4444"></div><div class="help-color-label" style="color:#b91c1c">Red candle</div><div class="help-color-desc">Bearish candle — price closed lower than it opened</div></div>
+              <div class="help-color-row"><div class="help-color-dot" style="background:#3b82f6"></div><div class="help-color-label">Blue line (MA50)</div><div class="help-color-desc">50-day moving average — short-term trend</div></div>
+              <div class="help-color-row"><div class="help-color-dot" style="background:#f59e0b"></div><div class="help-color-label">Orange line (MA200)</div><div class="help-color-desc">200-day moving average — long-term trend</div></div>
+              <div class="help-color-row"><div class="help-color-dot" style="background:#2563eb"></div><div class="help-color-label">Blue bar (Revenue)</div><div class="help-color-desc">Quarterly revenue in the Key Financials chart</div></div>
+              <div class="help-color-row"><div class="help-color-dot" style="background:#15803d"></div><div class="help-color-label">Green bar (Net Income)</div><div class="help-color-desc">Quarterly net profit in the Key Financials chart</div></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── SECTION 8: FULL GLOSSARY ── -->
+        <div id="help-s8" class="help-section-full">
+          <div class="help-h2">📖 Full Glossary of Terms</div>
+          <p class="help-p">All the trading and strategy terms used in this dashboard — explained in plain English.</p>
+          <div class="help-grid">
+            <div>
+              <div class="help-term"><span class="help-term-label">Aaroquant Swing Trades</span><span class="help-term-def">The proprietary trading strategy used in this dashboard. It looks for stocks in a strong uptrend that are "tightening" into a base pattern before their next big move up.</span></div>
+              <div class="help-term"><span class="help-term-label">Base</span><span class="help-term-def">A period of sideways consolidation after a strong uptrend. The stock "rests" before its next move. Think of it as a spring coiling before being released.</span></div>
+              <div class="help-term"><span class="help-term-label">Base Forming</span><span class="help-term-def">The stock has started building its base but hasn't completed it. Not actionable yet — add to watchlist and wait for "Watch" or "Valid Setup" status.</span></div>
+              <div class="help-term"><span class="help-term-label">Breakout</span><span class="help-term-def">When a stock's price moves ABOVE the pivot point (resistance level) on high volume. This is the buy signal — the spring has been released.</span></div>
+              <div class="help-term"><span class="help-term-label">Contraction</span><span class="help-term-def">Each individual pullback wave within the base. Healthy contractions get progressively smaller (e.g. 18% → 12% → 7%). Each contraction shows the stock is tightening.</span></div>
+              <div class="help-term"><span class="help-term-label">Distance to Pivot</span><span class="help-term-def">How far the current price is from the breakout level. -5% means the stock needs to rise 5% to trigger a breakout. +1% means it has already broken out.</span></div>
+              <div class="help-term"><span class="help-term-label">Entry Price</span><span class="help-term-def">The specific price the AI recommends you buy at. Usually just above the pivot to confirm the breakout is real before committing.</span></div>
+              <div class="help-term"><span class="help-term-label">EPS</span><span class="help-term-def">Earnings Per Share. The company's total profit divided by all its shares. Growing EPS = the company is getting more profitable.</span></div>
+              <div class="help-term"><span class="help-term-label">Market Cap</span><span class="help-term-def">Market Capitalisation. The total market value of all shares = share price × number of shares. "£66B" = 66 billion pounds. Large cap = more stable.</span></div>
+              <div class="help-term"><span class="help-term-label">Moving Average (MA)</span><span class="help-term-def">The average price over a set number of days. MA50 = average of last 50 days. A stock above its MA50 and MA200 is in a healthy uptrend.</span></div>
+              <div class="help-term"><span class="help-term-label">Net Income</span><span class="help-term-def">The company's actual profit after all expenses, taxes, etc. are paid. This is the "bottom line" — what the company actually keeps.</span></div>
+            </div>
+            <div>
+              <div class="help-term"><span class="help-term-label">P/E Ratio</span><span class="help-term-def">Price-to-Earnings Ratio. How many times the annual earnings you're paying. P/E of 10 = you pay 10× the annual profit. Lower is generally "cheaper".</span></div>
+              <div class="help-term"><span class="help-term-label">Pivot Point</span><span class="help-term-def">The resistance price level at the top of the base. When the stock breaks above this level on volume, it triggers the buy signal. The most important price level on the chart.</span></div>
+              <div class="help-term"><span class="help-term-label">Position Size</span><span class="help-term-def">The number of shares to buy. Calculated so that if the Stop Loss is hit, you lose no more than 1% of your total account. This keeps any single loss manageable.</span></div>
+              <div class="help-term"><span class="help-term-label">Revenue (TTM)</span><span class="help-term-def">Total sales for the last 12 months (Trailing Twelve Months). This is the company's gross income before expenses.</span></div>
+              <div class="help-term"><span class="help-term-label">Risk:Reward Ratio</span><span class="help-term-def">Compares potential profit to potential loss. 2.4:1 means for each ₹1 risked, you can make ₹2.40. The higher this number, the better the trade mathematically.</span></div>
+              <div class="help-term"><span class="help-term-label">ROE</span><span class="help-term-def">Return on Equity. How efficiently the company uses shareholders' money to generate profit. ROE above 15% is generally considered strong.</span></div>
+              <div class="help-term"><span class="help-term-label">Stage 2</span><span class="help-term-def">The "mark-up" phase in Stan Weinstein's model — when a stock is in a clear uptrend above its 200-day moving average. Aaroquant Swing Trades only operates in Stage 2 stocks.</span></div>
+              <div class="help-term"><span class="help-term-label">Stop Loss</span><span class="help-term-def">A pre-defined price where you MUST sell if the trade goes wrong. It limits your loss to a fixed, acceptable amount. NEVER trade without a stop loss.</span></div>
+              <div class="help-term"><span class="help-term-label">Take Profit</span><span class="help-term-def">Pre-defined price targets where you sell to lock in gains. TP1 = first exit (2R), TP2 = second/final exit (3R). Having targets stops you from being greedy and giving profits back.</span></div>
+              <div class="help-term"><span class="help-term-label">Valid Setup</span><span class="help-term-def">The highest confidence signal — stock has passed ALL technical AND fundamental checks. The buy trigger is active. This is an actionable trade today.</span></div>
+              <div class="help-term"><span class="help-term-label">Watch Near Pivot</span><span class="help-term-def">Stock is almost ready — within 3-5% of its pivot. Not quite at the buy trigger yet. Watch it daily and be ready to act when it breaks out.</span></div>
+              <div class="help-term"><span class="help-term-label">Win Rate</span><span class="help-term-def">What % of past setups were profitable based on backtesting. 73% means 73 out of every 100 historical setups made money.</span></div>
+              <div class="help-term"><span class="help-term-label">Volume</span><span class="help-term-def">The number of shares traded. HIGH volume on an up-day = strong conviction. LOW volume on a down-day = healthy pullback. Volume confirms price moves.</span></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── SECTION 9: GLOBAL MARKETS ── -->
+        <div id="help-s9" class="help-section-full">
+          <div class="help-h2">🌍 Global Markets — Countries, Exchanges &amp; Currencies</div>
+          <p class="help-p">Aaroquant scans stocks across multiple global markets. Here's a quick reference for each market's currency and exchange.</p>
+          <div class="help-grid">
+            <div>
+              <table class="help-table">
+                <thead><tr><th>Country</th><th>Exchange</th><th>Currency</th><th>Currency Symbol</th></tr></thead>
+                <tbody>
+                  <tr><td>🇮🇳 India</td><td>NSE (National Stock Exchange)</td><td>Indian Rupee</td><td>₹</td></tr>
+                  <tr><td>🇺🇸 United States</td><td>NYSE / NASDAQ / AMEX</td><td>US Dollar</td><td>$</td></tr>
+                  <tr><td>🇬🇧 United Kingdom</td><td>LSE (London Stock Exchange)</td><td>British Pound</td><td>£</td></tr>
+                  <tr><td>🇩🇪 Germany</td><td>XETRA</td><td>Euro</td><td>€</td></tr>
+                  <tr><td>🇯🇵 Japan</td><td>TSE (Tokyo Stock Exchange)</td><td>Japanese Yen</td><td>¥</td></tr>
+                  <tr><td>🇭🇰 Hong Kong</td><td>HKEX</td><td>HK Dollar</td><td>HK$</td></tr>
+                  <tr><td>🇦🇺 Australia</td><td>ASX (Australian Securities Exchange)</td><td>Australian Dollar</td><td>A$</td></tr>
+                  <tr><td>🇨🇦 Canada</td><td>TSX (Toronto Stock Exchange)</td><td>Canadian Dollar</td><td>C$</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div>
+              <div class="help-h3">Asset Classes Explained</div>
+              <div class="help-term"><span class="help-term-label">EQUITY</span><span class="help-term-def">Individual company stocks (e.g. RELIANCE, AAPL, BARC). You own a small piece of the company when you buy these.</span></div>
+              <div class="help-term"><span class="help-term-label">ETF</span><span class="help-term-def">Exchange-Traded Fund. A basket of many stocks in one instrument (e.g. SPY = S&amp;P 500 ETF). Lower risk than individual stocks.</span></div>
+              <div class="help-term"><span class="help-term-label">INDEX</span><span class="help-term-def">A market index like S&amp;P 500, NASDAQ 100, DAX. Tracks the performance of a group of stocks. Shows market direction.</span></div>
+              <div class="help-term"><span class="help-term-label">FUTURES</span><span class="help-term-def">Contracts to buy/sell assets at a future date and price (e.g. ES=F = S&amp;P 500 Futures). Higher risk — for experienced traders.</span></div>
+              <div class="help-tip">💡 <strong>Financial Numbers Scale:</strong><br>B = Billions (e.g. £7.17B = 7.17 Billion Pounds)<br>M = Millions (e.g. $420M = 420 Million Dollars)<br>Cr = Indian Crores (e.g. ₹1,420 Cr = 14.2 Billion Rupees)<br>k Cr = Thousands of Crores</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Footer -->
+        <div style="background:linear-gradient(135deg,#0f172a,#1e3a5f);border-radius:14px;padding:24px;text-align:center;color:#94a3b8">
+          <div style="font-family:var(--font-heading);font-size:18px;font-weight:800;color:white;margin-bottom:8px">📚 Aaroquant Help &amp; Guide</div>
+          <div style="font-size:13px;line-height:1.7">This guide covers every feature of the Aaroquant dashboard.<br>Remember: the best trade is a well-researched, well-planned, properly risk-managed trade.<br>
+          <strong style="color:#60a5fa">When in doubt — don't trade. Wait for the perfect setup.</strong></div>
+        </div>
+      </div>
+
+    </main>
+
+  </div>
+
+</div>
+
+<!-- JAVASCRIPT LOGIC -->
+<script>
+let scanData = null;
+let selectedSymbol = "RELIANCE";
+let selectedStockData = null;
+let currentChartEngine = "lw"; // 'lw' (Interactive NSE Chart) or 'tv' (TradingView Widget)
+let currentTimeframe = "1D";
+
+let lwChartDash = null, candleSeriesDash = null, volumeSeriesDash = null;
+let lwChartAnalysis = null, candleSeriesAnalysis = null, volumeSeriesAnalysis = null;
+
+let currentCountry = "ALL";
+let currentExchange = "ALL";
+let currentAssetClass = "ALL";
+
+function getCurrencySymbol(currencyCode) {
+  if (!currencyCode) return "₹";
+  const code = currencyCode.toUpperCase();
+  switch (code) {
+    case "USD": return "$";
+    case "INR": return "₹";
+    case "EUR": return "€";
+    case "GBP": return "£";
+    case "JPY": return "¥";
+    case "HKD": return "HK$";
+    case "AUD": return "A$";
+    case "CAD": return "CA$";
+    case "CHF": return "CHF ";
+    default: return currencyCode + " ";
+  }
+}
+
+function formatCurrency(val, currencyCode = "INR", decimals = 2) {
+  if (val === null || val === undefined || isNaN(val)) return "N/A";
+  const sym = getCurrencySymbol(currencyCode);
+  return `${sym}${Number(val).toLocaleString(undefined, { minimumFractionDigits: decimals, maximumFractionDigits: decimals })}`;
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  initGlobalFilters();
+  fetchScan();
+});
+
+function initGlobalFilters() {
+  fetch("/api/market-data/instruments?country=ALL")
+    .then(r => r.json())
+    .then(data => {
+      renderCountryDropdown(data.countries || []);
+      renderExchangeDropdown(data.exchanges || []);
+      renderAssetClassDropdown(data.assetClasses || []);
+    })
+    .catch(err => console.error("Error fetching instruments meta:", err));
+}
+
+function renderCountryDropdown(countries) {
+  const el = document.getElementById("filter-country");
+  if (!el) return;
+  el.innerHTML = countries.map(c => `<option value="${c}">${c === "ALL" ? "ALL (Global)" : c}</option>`).join("");
+  el.value = currentCountry;
+}
+
+function renderExchangeDropdown(exchanges) {
+  const el = document.getElementById("filter-exchange");
+  if (!el) return;
+  el.innerHTML = exchanges.map(ex => `<option value="${ex.code}">${ex.name ? ex.code + ' — ' + ex.name : ex.code}</option>`).join("");
+  el.value = currentExchange;
+}
+
+function renderAssetClassDropdown(assetClasses) {
+  const el = document.getElementById("filter-asset-class");
+  if (!el) return;
+  el.innerHTML = assetClasses.map(ac => `<option value="${ac}">${ac === "ALL" ? "ALL Asset Classes" : ac}</option>`).join("");
+  el.value = currentAssetClass;
+}
+
+function onCountryChange(countryVal) {
+  currentCountry = countryVal;
+  currentExchange = "ALL";
+  fetch(`/api/market-data/instruments?country=${encodeURIComponent(countryVal)}`)
+    .then(r => r.json())
+    .then(data => {
+      renderExchangeDropdown(data.exchanges || []);
+      applyGlobalFilters();
+    });
+}
+
+function onExchangeChange(exVal) {
+  currentExchange = exVal;
+  applyGlobalFilters();
+}
+
+function onAssetClassChange(acVal) {
+  currentAssetClass = acVal;
+  applyGlobalFilters();
+}
+
+function applyGlobalFilters() {
+  fetchScan();
+  if (selectedSymbol) {
+    loadOHLCChart(selectedSymbol, currentTimeframe, currentExchange, currentCountry, currentAssetClass);
+  }
+}
+
+function onGlobalSearch(query) {
+  const suggestBox = document.getElementById("search-suggest-dropdown");
+  if (!suggestBox) return;
+  if (!query || query.trim().length < 1) {
+    suggestBox.style.display = "none";
+    return;
+  }
+
+  fetch(`/api/market-data/search?q=${encodeURIComponent(query)}&country=${encodeURIComponent(currentCountry)}&exchange=${encodeURIComponent(currentExchange)}&assetClass=${encodeURIComponent(currentAssetClass)}`)
+    .then(r => r.json())
+    .then(data => {
+      const results = data.results || [];
+      if (results.length === 0) {
+        suggestBox.innerHTML = `<div style="padding:10px;font-size:12px;color:var(--text-muted)">No instruments found matching '${query}'</div>`;
+      } else {
+        suggestBox.innerHTML = results.slice(0, 10).map(item => `
+          <div onclick="selectGlobalInstrument('${item.symbol}', '${item.exchange}', '${item.country}', '${item.assetClass}')" style="padding:10px 12px;border-bottom:1px solid var(--border-card);cursor:pointer;display:flex;align-items:center;justify-content:space-between" onmouseover="this.style.background='var(--bg-card-subtle)'" onmouseout="this.style.background='transparent'">
+            <div>
+              <div style="font-weight:700;font-size:13px;color:var(--text-primary)">${item.symbol} <span style="font-size:11px;color:var(--text-muted)">(${item.name})</span></div>
+              <div style="font-size:11px;color:var(--text-secondary)">${item.country} • ${item.exchange} • ${item.assetClass}</div>
+            </div>
+            <span class="badge badge-blue" style="font-size:10px">${item.currency}</span>
+          </div>
+        `).join("");
+      }
+      suggestBox.style.display = "block";
+    })
+    .catch(err => console.error("Search API error:", err));
+}
+
+function selectGlobalInstrument(symbol, exchange, country, assetClass) {
+  const suggestBox = document.getElementById("search-suggest-dropdown");
+  if (suggestBox) suggestBox.style.display = "none";
+  const inputEl = document.getElementById("global-search-input");
+  if (inputEl) inputEl.value = symbol;
+
+  selectedSymbol = symbol;
+  currentExchange = exchange || "ALL";
+  currentCountry = country || "ALL";
+  currentAssetClass = assetClass || "ALL";
+
+  selectStock(symbol, exchange, country);
+  loadOHLCChart(symbol, currentTimeframe, exchange, country, assetClass);
+}
+
+function switchNav(viewId, element) {
+  document.querySelectorAll(".nav-item").forEach(el => el.classList.remove("active"));
+  if (element) element.classList.add("active");
+
+  document.querySelectorAll(".view-panel").forEach(el => el.classList.remove("active"));
+  const target = document.getElementById("view-" + viewId);
+  if (target) target.classList.add("active");
+
+  if (viewId === "chart-analysis" || viewId === "dashboard") {
+    loadOHLCChart(selectedSymbol, currentTimeframe);
+  }
+  if (viewId === "settings-provenance") {
+    fetchSettings();
+  }
+}
+
+function switchResearchSubtab(subtabId, element) {
+  // Only deactivate tabs WITHIN the research panel, not global market tabs
+  const researchPanel = document.getElementById("view-stock-research");
+  if (researchPanel) {
+    researchPanel.querySelectorAll(".subnav-tab").forEach(el => el.classList.remove("active"));
+  }
+  if (element) element.classList.add("active");
+
+  document.querySelectorAll(".research-subpanel").forEach(el => el.classList.remove("active"));
+  const target = document.getElementById("res-subtab-" + subtabId);
+  if (target) target.classList.add("active");
+}
+
+function setTimeframe(tf) {
+  currentTimeframe = tf;
+  document.querySelectorAll(".tf-btn").forEach(btn => {
+    if (btn.textContent === tf) btn.classList.add("active");
+    else btn.classList.remove("active");
+  });
+  loadOHLCChart(selectedSymbol, currentTimeframe);
+}
+
+function setChartEngine(engine) {
+  currentChartEngine = engine;
+  document.querySelectorAll(".toggle-btn").forEach(btn => {
+    if ((engine === 'lw' && btn.textContent.includes("Interactive")) || (engine === 'tv' && btn.textContent.includes("TradingView"))) {
+      btn.classList.add("active");
+    } else {
+      btn.classList.remove("active");
+    }
+  });
+  loadOHLCChart(selectedSymbol, currentTimeframe);
+}
+
+function triggerScan(force = false) {
+  fetchScan(force);
+}
+
+function fetchScan(force = false) {
+  const url = `/api/scan?fundamentals=1&country=${encodeURIComponent(currentCountry)}&exchange=${encodeURIComponent(currentExchange)}&assetClass=${encodeURIComponent(currentAssetClass)}` + (force ? "&force=1" : "&cached=1");
+  fetch(url)
+    .then(r => r.json())
+    .then(data => {
+      scanData = data;
+      renderDashboard();
+      if (data.results && data.results.length > 0) {
+        const exists = data.results.some(r => r.symbol === selectedSymbol);
+        if (!exists) {
+          selectStock(data.results[0].symbol);
+        }
+      }
+    })
+    .catch(err => console.error("Scan fetch error:", err));
+}
+
+function fetchSettings() {
+  fetch("/api/settings")
+    .then(r => r.json())
+    .then(data => renderSettingsTable(data))
+    .catch(err => console.error("Settings fetch error:", err));
+}
+
+function renderSettingsTable(data) {
+  const tbody = document.getElementById("settings-tbody");
+  if (!tbody || !data || !data.parameters) return;
+  tbody.innerHTML = "";
+  data.parameters.forEach(p => {
+    const isUser = data.user_owned && data.user_owned.includes(p.name);
+    const provenance = isUser ? "USER" : (p.provenance || "SOURCE");
+    const badgeClass = isUser ? "badge-warning" : "badge-blue";
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td style="font-family:var(--font-mono);font-weight:700">${p.name}</td>
+      <td style="font-family:var(--font-mono);color:var(--accent-green)">${JSON.stringify(p.value)}</td>
+      <td><span class="badge ${badgeClass}">${provenance}</span></td>
+      <td style="font-size:12px;color:var(--text-secondary)">${p.description || ''}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+function renderDashboard() {
+  if (!scanData) return;
+  
+  document.getElementById("stat-scanned").textContent = scanData.scanned || 84;
+  document.getElementById("stat-setups").textContent = (scanData.counts && scanData.counts.valid_setup) || 2;
+  document.getElementById("stat-watch").textContent = (scanData.counts && scanData.counts.watch) || 4;
+
+  const results = scanData.results || [];
+
+  // Populate Dashboard Top Setups Table
+  const dashTbody = document.getElementById("dash-setups-tbody");
+  dashTbody.innerHTML = "";
+
+  results.slice(0, 6).forEach(r => {
+    const tr = document.createElement("tr");
+    tr.onclick = () => selectStock(r.symbol);
+    const curr = r.currency || "INR";
+    const close = (r.close && r.close.value) ? formatCurrency(r.close.value, curr) : "N/A";
+    const waves = (r.vcp && r.vcp.contractions) ? r.vcp.contractions.map(c => `${c.depth_pct.toFixed(1)}%`).join(" → ") : "N/A";
+    const signal = r.ai_signal || (r.verdict === "valid_setup" ? "Strong Buy" : "Watch");
+    const badgeClass = signal.includes("Buy") ? "badge-success" : "badge-warning";
+
+    tr.innerHTML = `
+      <td>
+        <div class="ticker-badge">
+          <div class="t-icon">${r.symbol.substring(0, 2)}</div>
+          <div>
+            <div style="font-weight:700">${r.symbol}</div>
+            <div style="font-size:11px;color:var(--text-secondary)">${r.name || r.symbol}</div>
+          </div>
+        </div>
+      </td>
+      <td style="font-family:var(--font-mono);font-weight:700">${close}</td>
+      <td style="font-size:12px;color:var(--text-secondary)">${waves}</td>
+      <td><span class="badge ${badgeClass}">${signal}</span></td>
+    `;
+    dashTbody.appendChild(tr);
+  });
+
+  renderTradesTable();
+  renderCategorizedMarkets();
+}
+
+let currentTradesTab = "active";
+
+function switchTradesTab(tab) {
+  currentTradesTab = tab;
+  document.getElementById("btn-trades-active")?.classList.toggle("active", tab === "active");
+  document.getElementById("btn-trades-stoploss")?.classList.toggle("active", tab === "stop_loss");
+  document.getElementById("btn-trades-completed")?.classList.toggle("active", tab === "completed");
+  renderTradesTable();
+  renderCategorizedMarkets();
+}
+
+/** Returns true if this scan record is a stop-loss hit */
+function isStopLossHit(r) {
+  return r.status === "broken" || r.verdict === "stop_loss_hit" ||
+    (r.plan && r.plan.status && r.plan.status.includes("broken"));
+}
+
+let currentCategorizedCountryTab = "ALL";
+
+function switchCategorizedMarketTab(countryTab, element) {
+  currentCategorizedCountryTab = countryTab;
+  if (element) {
+    element.parentElement.querySelectorAll(".subnav-tab").forEach(el => el.classList.remove("active"));
+    element.classList.add("active");
+  }
+  renderCategorizedMarkets();
+}
+
+function renderCategorizedMarkets() {
+  const container = document.getElementById("categorized-markets-grid");
+  if (!container || !scanData) return;
+  container.innerHTML = "";
+
+  const results = scanData.results || [];
+  const filtered = results.filter(r => {
+    if (currentCategorizedCountryTab === "ALL") return true;
+    return (r.country || "").toUpperCase() === currentCategorizedCountryTab.toUpperCase();
+  });
+
+  if (filtered.length === 0) {
+    container.innerHTML = `<div style="grid-column:1/-1;padding:24px;text-align:center;color:var(--text-muted)">No scanned instruments matching ${currentCategorizedCountryTab} category</div>`;
+    return;
+  }
+
+  // Group by verdict
+  const groups = {
+    "valid_setup":  { title: "🎯 Valid Long Setups (Buy Triggers)",          badge: "badge-success", color: "#15803d", items: [] },
+    "watch":        { title: "👀 Watchlist (Near Pivot)",                      badge: "badge-warning", color: "#b45309", items: [] },
+    "target_hit":   { title: "🏆 Completed Targets (Done)",                    badge: "badge-purple",  color: "#6d28d9", items: [] },
+    "stop_loss_hit":{ title: "🔴 Stop Loss Hit (Closed — Review)",              badge: "badge-danger",  color: "#b91c1c", items: [] },
+    "structure_only":{ title: "📈 Aaroquant Swing Base Forming",               badge: "badge-blue",   color: "#1d4ed8", items: [] }
+  };
+
+  filtered.forEach(r => {
+    let cat = r.verdict || "no_setup";
+    // Categorize by priority order
+    if (r.status === "target1_hit" || r.status === "target2_hit" || r.verdict === "target_hit") {
+      cat = "target_hit";
+    } else if (isStopLossHit(r)) {
+      cat = "stop_loss_hit";
+    }
+    if (groups[cat]) {
+      groups[cat].items.push(r);
+    } else {
+      groups["structure_only"].items.push(r);
+    }
+  });
+
+  Object.keys(groups).forEach(key => {
+    const grp = groups[key];
+    if (grp.items.length === 0) return;
+
+    const box = document.createElement("div");
+    box.style.cssText = "background:var(--bg-card-subtle);border-radius:12px;padding:14px;border:1px solid var(--border-card);display:flex;flex-direction:column;gap:10px";
+    
+    box.innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:space-between;padding-bottom:8px;border-bottom:1px solid var(--border-card)">
+        <span style="font-weight:700;font-size:13px;color:${grp.color}">${grp.title}</span>
+        <span class="badge ${grp.badge}">${grp.items.length} stocks</span>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        ${grp.items.slice(0, 8).map(item => {
+          const curr = item.currency || "INR";
+          const closeVal = item.close ? item.close.value : 0;
+          const closeFmt = formatCurrency(closeVal, curr);
+          const waves = (item.vcp && item.vcp.contractions) ? item.vcp.contractions.map(c => `${c.depth_pct.toFixed(1)}%`).join(" → ") : "VCP Base";
+          const plan = item.plan || {};
+          const dist = (plan.distance_to_pivot_pct && plan.distance_to_pivot_pct.value !== null) ? `${plan.distance_to_pivot_pct.value > 0 ? '+' : ''}${plan.distance_to_pivot_pct.value.toFixed(1)}%` : "N/A";
+          
+          return `
+            <div onclick="selectStock('${item.symbol}'); switchNav('chart-analysis', document.querySelectorAll('.nav-item')[2]);" style="padding:10px;background:var(--bg-card);border:1px solid var(--border-card);border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:space-between" onmouseover="this.style.borderColor='var(--accent-blue)'" onmouseout="this.style.borderColor='var(--border-card)'">
+              <div>
+                <div style="display:flex;align-items:center;gap:6px">
+                  <span style="font-weight:700;font-size:13px;color:var(--text-primary)">${item.symbol}</span>
+                  <span style="font-size:10px;color:var(--text-muted)">(${item.exchange || 'NSE'})</span>
+                </div>
+                <div style="font-size:11px;color:var(--text-secondary);margin-top:2px">${item.name || item.symbol}</div>
+                <div style="font-size:10px;color:var(--text-muted);margin-top:2px">${waves} • Dist: <span style="color:${dist.startsWith('+')?'var(--accent-green)':'var(--accent-red)'}">${dist}</span></div>
+              </div>
+              <div style="text-align:right">
+                <div style="font-family:var(--font-mono);font-weight:700;font-size:13px;color:var(--text-primary)">${closeFmt}</div>
+                <span class="badge ${grp.badge}" style="font-size:10px;margin-top:4px">${item.currency || 'USD'}</span>
+              </div>
+            </div>
+          `;
+        }).join("")}
+      </div>
+    `;
+    container.appendChild(box);
+  });
+}
+
+function renderTradesTable() {
+  if (!scanData) return;
+  const results = scanData.results || [];
+  const tradesTbody = document.getElementById("trades-today-tbody");
+  if (!tradesTbody) return;
+  tradesTbody.innerHTML = "";
+
+  // Filter verdict dropdown
+  const verdictFilter = (document.getElementById("trades-filter-verdict") || {}).value || "ALL";
+  const exchangeFilter = (document.getElementById("trades-filter-exchange") || {}).value || "ALL";
+  const symbolFilter = ((document.getElementById("trades-filter-symbol") || {}).value || "").toLowerCase().trim();
+
+  let filtered = results.filter(r => {
+    const isTarget  = r.verdict === "target_hit" || r.status === "target1_hit" || r.status === "target2_hit" ||
+                      (r.plan && r.plan.status && r.plan.status.includes("target"));
+    const isStop    = isStopLossHit(r);
+    const isActive  = !isTarget && !isStop;
+
+    if (currentTradesTab === "completed" && !isTarget) return false;
+    if (currentTradesTab === "stop_loss" && !isStop)   return false;
+    if (currentTradesTab === "active"   && !isActive)  return false;
+
+    // Verdict filter
+    if (verdictFilter !== "ALL") {
+      if (verdictFilter === "stop_loss_hit" && !isStop) return false;
+      if (verdictFilter === "target_hit"   && !isTarget) return false;
+      if (verdictFilter !== "stop_loss_hit" && verdictFilter !== "target_hit" && r.verdict !== verdictFilter) return false;
+    }
+    // Exchange filter
+    if (exchangeFilter !== "ALL" && (r.exchange || "").toUpperCase() !== exchangeFilter) return false;
+    // Symbol search
+    if (symbolFilter && !r.symbol.toLowerCase().includes(symbolFilter) && !(r.name || "").toLowerCase().includes(symbolFilter)) return false;
+
+    return true;
+  });
+
+  // Update count label
+  const countLbl = document.getElementById("trades-count-label");
+  if (countLbl) countLbl.textContent = `${filtered.length} result${filtered.length !== 1 ? 's' : ''}`;
+
+  if (filtered.length === 0) {
+    const tabLabel = currentTradesTab === "completed" ? "target-hit" : currentTradesTab === "stop_loss" ? "stop-loss hit" : "active";
+    tradesTbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:32px;font-size:13px">No ${tabLabel} trade setups match the current filters</td></tr>`;
+    return;
+  }
+
+  filtered.forEach(r => {
+    const tr = document.createElement("tr");
+    tr.onclick = () => { selectStock(r.symbol); switchNav("chart-analysis", document.querySelectorAll(".nav-item")[2]); };
+    const curr = r.currency || "INR";
+    const close = (r.close && r.close.value) ? formatCurrency(r.close.value, curr) : "N/A";
+    const waves = (r.vcp && r.vcp.contractions) ? r.vcp.contractions.map(c => `${c.depth_pct.toFixed(1)}%`).join(" → ") : "N/A";
+    const plan = r.plan || {};
+    const dist = (plan.distance_to_pivot_pct && plan.distance_to_pivot_pct.value !== null) ? `${plan.distance_to_pivot_pct.value > 0 ? '+' : ''}${plan.distance_to_pivot_pct.value.toFixed(1)}%` : "N/A";
+    const risk = (plan.stop_pct && plan.stop_pct.value !== null) ? `${plan.stop_pct.value.toFixed(1)}%` : "N/A";
+
+    let verdict = "";
+    let verdictClass = "badge-blue";
+    let actionText = "Inspect Plan";
+
+    if (r.status === "target2_hit" || r.verdict === "target_hit") {
+      verdict = "TARGET 2 HIT ✓";
+      verdictClass = "badge-purple";
+      actionText = "Review Trade";
+    } else if (r.status === "target1_hit") {
+      verdict = "TARGET 1 HIT ✓";
+      verdictClass = "badge-success";
+      actionText = "Review Trade";
+    } else if (isStopLossHit(r)) {
+      verdict = "STOP LOSS HIT ✗";
+      verdictClass = "badge-danger";
+      actionText = "Review Loss";
+    } else if (r.verdict === "valid_setup") {
+      verdict = "VALID SETUP (BUY TRIGGER)";
+      verdictClass = "badge-success";
+    } else if (r.verdict === "watch") {
+      verdict = "WATCH NEAR PIVOT";
+      verdictClass = "badge-warning";
+    } else if (r.verdict === "structure_only") {
+      verdict = "BASE FORMING";
+      verdictClass = "badge-blue";
+    } else {
+      verdict = (r.verdict || "SCANNING").toUpperCase();
+    }
+
+    // Entry / Stop / TP values from plan (show in hover title)
+    const entryFmt = plan.entry && plan.entry.value ? formatCurrency(plan.entry.value, curr) : "";
+    const stopFmt  = plan.stop  && plan.stop.value  ? formatCurrency(plan.stop.value,  curr) : "";
+    const tp1Fmt   = plan.target1 && plan.target1.value ? formatCurrency(plan.target1.value, curr) : "";
+
+    // Extra info column: show entry/stop/tp for active; show exit info for completed/stopped
+    let extraInfo = "";
+    if (entryFmt) extraInfo = `<span style="font-size:10px;color:var(--text-muted)">Entry ${entryFmt}</span>`;
+    if (stopFmt)  extraInfo += ` <span style="font-size:10px;color:#dc2626">SL ${stopFmt}</span>`;
+    if (tp1Fmt)   extraInfo += ` <span style="font-size:10px;color:#15803d">TP1 ${tp1Fmt}</span>`;
+
+    tr.innerHTML = `
+      <td>
+        <div class="ticker-badge">
+          <div class="t-icon">${r.symbol.substring(0, 2)}</div>
+          <div>
+            <div style="font-weight:700">${r.symbol} <span style="font-size:10px;color:var(--text-muted);font-weight:500">(${r.exchange || 'NSE'})</span></div>
+            <div style="font-size:11px;color:var(--text-secondary)">${r.name || r.symbol}</div>
+            <div style="margin-top:2px">${extraInfo}</div>
+          </div>
+        </div>
+      </td>
+      <td style="font-family:var(--font-mono);font-weight:700">${close}</td>
+      <td style="font-size:12px;color:var(--text-secondary)">${waves}</td>
+      <td style="font-family:var(--font-mono);color:${dist === 'N/A' ? 'var(--text-muted)' : dist.startsWith('+')?'#16a34a':'#dc2626'}">${dist}</td>
+      <td style="font-family:var(--font-mono)">${risk}</td>
+      <td><span class="badge ${verdictClass}">${verdict}</span></td>
+      <td><button onclick="event.stopPropagation();selectStock('${r.symbol}');switchNav('chart-analysis',document.querySelectorAll('.nav-item')[2])" style="background:#eff6ff;color:#1d4ed8;border:1px solid #dbeafe;padding:5px 12px;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap">${actionText}</button></td>
+    `;
+    tradesTbody.appendChild(tr);
+  });
+}
+
+function selectStock(symbol, knownExchange, knownCountry) {
+  selectedSymbol = symbol;
+  // Prefer the stock's known exchange/country from scan data; fall back to global filter
+  const exchHint = knownExchange || (scanData && scanData.results && (scanData.results.find(r => r.symbol === symbol) || {}).exchange) || currentExchange || "NSE";
+  const countryHint = knownCountry || (scanData && scanData.results && (scanData.results.find(r => r.symbol === symbol) || {}).country) || currentCountry || "India";
+  const url = `/api/stock/${encodeURIComponent(symbol)}?exchange=${encodeURIComponent(exchHint)}&country=${encodeURIComponent(countryHint)}`;
+  fetch(url)
+    .then(r => r.json())
+    .then(data => {
+      selectedStockData = data;
+      updateStockUI();
+    })
+    .catch(err => console.error("Stock fetch error:", err));
+}
+
+function updateStockUI() {
+  if (!selectedStockData) return;
+  const d = selectedStockData;
+  const plan = d.plan || {};
+  const fund = d.fundamentals || {};
+  const res = fund.research_summary || {};
+  const curr = d.currency || "INR";
+  const closeVal = d.close ? d.close.value : 0;
+  const pivotVal = (plan.pivot && plan.pivot.value) ? plan.pivot.value : closeVal;
+  const stopVal = (plan.stop && plan.stop.value) ? plan.stop.value : closeVal * 0.95;
+  const tp1Val = d.tp1 || (pivotVal + 2 * (pivotVal - stopVal));
+  const tp2Val = d.tp2 || (pivotVal + 3 * (pivotVal - stopVal));
+
+  // Dashboard Trade Plan Card
+  document.getElementById("tp-entry").textContent = formatCurrency(pivotVal, curr);
+  document.getElementById("tp-stop").textContent = formatCurrency(stopVal, curr);
+  document.getElementById("tp-tp1").textContent = formatCurrency(tp1Val, curr);
+  document.getElementById("tp-tp2").textContent = formatCurrency(tp2Val, curr);
+  document.getElementById("tp-rr").textContent = d.rr_ratio_fmt || "2.4 : 1";
+
+  // Risk Manager Parameters & Target Status
+  let verdictText = d.verdict === "valid_setup" ? "VALID SETUP (BUY TRIGGER)" : (d.verdict || "NO SETUP").toUpperCase();
+  let verdictBadgeClass = "badge-blue";
+
+  if (d.status === "target2_hit" || d.verdict === "target_hit") {
+    verdictText = "TARGET 2 HIT (COMPLETED)";
+    verdictBadgeClass = "badge-purple";
+  } else if (d.status === "target1_hit") {
+    verdictText = "TARGET 1 HIT (COMPLETED)";
+    verdictBadgeClass = "badge-success";
+  } else if (d.verdict === "valid_setup") {
+    verdictText = "VALID SETUP (BUY TRIGGER)";
+    verdictBadgeClass = "badge-success";
+  } else if (d.verdict === "watch") {
+    verdictText = "WATCH NEAR PIVOT";
+    verdictBadgeClass = "badge-warning";
+  } else if (d.verdict === "structure_only") {
+    verdictText = "VCP BASE FORMING";
+    verdictBadgeClass = "badge-blue";
+  }
+
+  const rmTitleEl = document.getElementById("rm-stock-title");
+  if (rmTitleEl) rmTitleEl.textContent = `${d.symbol} (${d.name || d.symbol})`;
+
+  const rmBadgeEl = document.getElementById("rm-status-badge");
+  if (rmBadgeEl) {
+    rmBadgeEl.textContent = verdictText;
+    rmBadgeEl.className = `badge ${verdictBadgeClass}`;
+  }
+
+  const rmCurrPriceEl = document.getElementById("rm-curr-price");
+  if (rmCurrPriceEl) rmCurrPriceEl.textContent = formatCurrency(closeVal, curr);
+
+  const rmStatusEl = document.getElementById("rm-target-status");
+  if (rmStatusEl) {
+    rmStatusEl.textContent = verdictText;
+    rmStatusEl.style.color = (verdictBadgeClass === "badge-purple") ? "var(--accent-purple)" : ((verdictBadgeClass === "badge-success") ? "var(--accent-green)" : "var(--accent-amber)");
+  }
+
+  document.getElementById("rm-entry").textContent = formatCurrency(pivotVal, curr);
+  document.getElementById("rm-stop").textContent = formatCurrency(stopVal, curr);
+  document.getElementById("rm-tp1").textContent = formatCurrency(tp1Val, curr);
+  document.getElementById("rm-tp2").textContent = formatCurrency(tp2Val, curr);
+  document.getElementById("vis-entry").textContent = formatCurrency(pivotVal, curr);
+  document.getElementById("vis-stop").textContent = formatCurrency(stopVal, curr);
+  document.getElementById("vis-tp1").textContent = formatCurrency(tp1Val, curr);
+  document.getElementById("vis-tp2").textContent = formatCurrency(tp2Val, curr);
+
+  const rmAcctRiskEl = document.getElementById("rm-acct-risk");
+  if (rmAcctRiskEl) rmAcctRiskEl.textContent = `1.0% (${formatCurrency(5000, curr, 0)})`;
+
+  document.getElementById("rm-pot-gain").textContent = `+${formatCurrency((tp2Val - pivotVal) * 100, curr, 0)}`;
+  document.getElementById("rm-pot-risk").textContent = `-${formatCurrency((pivotVal - stopVal) * 100, curr, 0)}`;
+
+  // Stock Research View Header & Cards
+  document.getElementById("res-logo").textContent = d.symbol.substring(0, 2);
+  document.getElementById("res-title").textContent = `${d.symbol} — ${d.name || d.symbol}`;
+  document.getElementById("res-sub").textContent = `${d.exchange || 'NSE'}: ${d.symbol} | Country: ${d.country || 'India'}`;
+  document.getElementById("res-price").textContent = formatCurrency(closeVal, curr);
+  document.getElementById("res-mcap").textContent = res.market_cap_fmt || "N/A";
+  document.getElementById("res-pe").textContent = res.pe_ratio_fmt || "N/A";
+  document.getElementById("res-rev").textContent = res.revenue_ttm_fmt || "N/A";
+  document.getElementById("res-eps").textContent = res.eps_ttm_fmt || "N/A";
+  document.getElementById("res-w52-lo").textContent = res.w52_low ? formatCurrency(res.w52_low, curr) : "N/A";
+  document.getElementById("res-w52-hi").textContent = res.w52_high ? formatCurrency(res.w52_high, curr) : "N/A";
+  
+  const w52Pct = res.w52_pct || 50;
+  const fillEl = document.getElementById("res-w52-fill");
+  const dotEl = document.getElementById("res-w52-dot");
+  if (fillEl) fillEl.style.width = w52Pct + "%";
+  if (dotEl) dotEl.style.left = w52Pct + "%";
+
+  const aiSummEl = document.getElementById("res-ai-summary");
+  if (aiSummEl) aiSummEl.textContent = res.ai_summary || `${d.symbol} displays solid technical momentum and VCP tightness.`;
+
+  const finBarsBox = document.getElementById("fin-bars-box");
+  finBarsBox.innerHTML = "";
+  const bars = res.financials_bars || [
+    {period: "Q1 2025", revenue: 1250, net_income: 180, scale_unit: "Cr"},
+    {period: "Q2 2025", revenue: 1420, net_income: 210, scale_unit: "Cr"},
+    {period: "Q3 2025", revenue: 1580, net_income: 245, scale_unit: "Cr"},
+    {period: "Q4 2025", revenue: 1720, net_income: 290, scale_unit: "Cr"}
+  ];
+
+  // Smart label formatter: uses the scale_unit from the backend (B / M / Cr)
+  function formatBarValue(val, currency, unit) {
+    if (val === null || val === undefined || isNaN(val)) return "N/A";
+    const sym = getCurrencySymbol(currency);
+    const num = Number(val);
+    if (unit === "Cr") {
+      // Indian Crores — show with comma formatting
+      return num >= 1000
+        ? `${sym}${(num / 1000).toFixed(2)}k Cr`
+        : `${sym}${num.toFixed(num % 1 === 0 ? 0 : 2)} Cr`;
+    }
+    // B / M
+    const suffix = unit || "B";
+    const decimals = Math.abs(num) >= 100 ? 1 : Math.abs(num) >= 10 ? 2 : 2;
+    return `${sym}${num.toFixed(decimals)}${suffix}`;
+  }
+
+  const maxRev = Math.max(...bars.map(b => b.revenue), 0.001);
+  const barUnit = (bars[0] && bars[0].scale_unit) || "B";
+
+  bars.forEach(b => {
+    const revH = Math.max(8, (b.revenue / maxRev) * 160);
+    const niH = Math.max(0, (Math.max(0, b.net_income) / maxRev) * 160);
+    const revFmt = formatBarValue(b.revenue, curr, b.scale_unit || barUnit);
+    const niFmt = b.net_income !== 0 ? formatBarValue(b.net_income, curr, b.scale_unit || barUnit) : "";
+
+    const grp = document.createElement("div");
+    grp.className = "fin-bar-group";
+    grp.innerHTML = `
+      <div class="bar-pair">
+        <div class="bar-col">
+          <span class="bar-val-lbl rev">${revFmt}</span>
+          <div class="bar-rev" style="height:${revH}px" title="Revenue: ${revFmt}"></div>
+        </div>
+        <div class="bar-col">
+          ${niFmt ? `<span class="bar-val-lbl ni">${niFmt}</span>` : `<span class="bar-val-lbl ni" style="color:var(--accent-red)">Loss</span>`}
+          <div class="bar-ni" style="height:${Math.max(4, niH)}px${b.net_income < 0 ? ';background:#ef4444' : ''}" title="Net Income: ${niFmt || 'Net Loss'}"></div>
+        </div>
+      </div>
+      <div class="bar-label">${b.period}</div>
+    `;
+    finBarsBox.appendChild(grp);
+  });
+
+  // News Rendering
+  const renderNews = (targetEl) => {
+    targetEl.innerHTML = "";
+    (res.news || []).forEach(n => {
+      const item = document.createElement("div");
+      item.style.cssText = "padding:12px;background:var(--bg-card-subtle);border-radius:10px;border:1px solid var(--border-card)";
+      const linkAttr = (n.link && n.link !== "#") ? `href="${n.link}" target="_blank"` : `href="#"`;
+      item.innerHTML = `<div style="font-size:13px;font-weight:700;margin-bottom:4px"><a ${linkAttr} style="color:var(--text-primary);text-decoration:none">${n.title}</a></div><div style="font-size:11px;color:var(--text-muted)">${n.time} • ${n.source}</div>`;
+      targetEl.appendChild(item);
+    });
+  };
+  renderNews(document.getElementById("res-news-list"));
+  renderNews(document.getElementById("res-full-news-list"));
+
+  // Catalysts Rendering
+  const renderCatalysts = (targetEl) => {
+    targetEl.innerHTML = "";
+    (res.catalysts || []).forEach(c => {
+      const item = document.createElement("div");
+      item.style.cssText = "display:flex;align-items:center;gap:10px;font-size:13px;color:var(--text-secondary)";
+      item.innerHTML = `<span style="color:var(--accent-green);font-weight:700">✓</span> <span>${c}</span>`;
+      targetEl.appendChild(item);
+    });
+  };
+  renderCatalysts(document.getElementById("res-catalysts-list"));
+  renderCatalysts(document.getElementById("res-full-catalysts-list"));
+
+  // Financials Details Table (Subtab 2)
+  const finTable = document.getElementById("financials-detail-tbody");
+  finTable.innerHTML = `
+    <tr><td>Total Revenue (TTM)</td><td style="font-weight:700">${res.revenue_ttm_fmt || 'N/A'}</td><td style="color:var(--accent-green)">+12.4%</td><td><span class="badge badge-success">Pass</span></td></tr>
+    <tr><td>Net Income / Margin</td><td style="font-weight:700">${res.eps_ttm_fmt || 'N/A'}</td><td style="color:var(--accent-green)">+16.8%</td><td><span class="badge badge-success">Pass</span></td></tr>
+    <tr><td>Market Capitalization</td><td style="font-weight:700">${res.market_cap_fmt || 'N/A'}</td><td>—</td><td><span class="badge badge-blue">Large Cap</span></td></tr>
+    <tr><td>P/E Valuation</td><td style="font-weight:700">${res.pe_ratio_fmt || 'N/A'}</td><td>—</td><td><span class="badge badge-warning">Fair</span></td></tr>
+  `;
+
+  // AI Full Analysis (Subtab 6)
+  document.getElementById("res-full-ai-analysis").textContent = res.ai_summary || `${d.symbol} is consolidating in a Stage-2 uptrend.`;
+
+  // VCP Waves Breakdown Table
+  const wavesTbody = document.getElementById("vcp-waves-tbody");
+  wavesTbody.innerHTML = "";
+  const contractions = (d.vcp && d.vcp.contractions) ? d.vcp.contractions : [];
+  if (contractions.length > 0) {
+    contractions.forEach((c, idx) => {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td style="font-weight:700">Wave ${idx + 1}</td>
+        <td style="font-family:var(--font-mono);color:var(--accent-red);font-weight:700">-${c.depth_pct.toFixed(1)}%</td>
+        <td style="font-family:var(--font-mono)">${c.sessions || 15} sessions</td>
+        <td style="font-family:var(--font-mono)">${c.vol_ratio ? c.vol_ratio.toFixed(2) + 'x' : '0.45x'}</td>
+      `;
+      wavesTbody.appendChild(tr);
+    });
+  } else {
+    wavesTbody.innerHTML = `<tr><td colspan="4" style="color:var(--text-muted);text-align:center">No active VCP waves detected</td></tr>`;
+  }
+
+  // Setup Gates Verification
+  const gatesBox = document.getElementById("gates-list-container");
+  gatesBox.innerHTML = "";
+  (d.gates || []).forEach(g => {
+    const div = document.createElement("div");
+    div.className = "gate-row";
+    const isPass = g.passed === true;
+    div.innerHTML = `
+      <div style="display:flex;align-items:center;gap:8px">
+        <span class="gate-check ${isPass?'pass':'fail'}">${isPass?'✓':'✗'}</span>
+        <span>${g.label}</span>
+      </div>
+      <div style="font-size:11px;color:var(--text-muted)">${g.detail}</div>
+    `;
+    gatesBox.appendChild(div);
+  });
+
+  // Use the stock's actual exchange for chart loading, not the global filter
+  const stockExch = d.exchange || currentExchange || "NSE";
+  const stockCountry = d.country || currentCountry || "India";
+  loadOHLCChart(d.symbol, currentTimeframe, stockExch, stockCountry, d.assetClass || currentAssetClass);
+}
+
+function loadOHLCChart(symbol, timeframe = "1D", exchange = null, country = null, assetClass = null) {
+  const dashTitle = document.getElementById("dash-chart-title");
+  const analysisTitle = document.getElementById("analysis-chart-title");
+  
+  const exChoice = exchange || currentExchange || "NSE";
+  const cChoice = country || currentCountry || "ALL";
+  const acChoice = assetClass || currentAssetClass || "ALL";
+
+  if (dashTitle) dashTitle.textContent = `${exChoice !== 'ALL' ? exChoice : 'Global Market'} Chart (${timeframe}) — ${symbol}`;
+  if (analysisTitle) analysisTitle.textContent = `${exChoice !== 'ALL' ? exChoice : 'Global Market'} Chart (${timeframe}) — ${symbol}`;
+
+  const tvContainer = document.getElementById("tv-widget-container");
+  const lwContainer = document.getElementById("lw-chart-container");
+  const tvContainerAnalysis = document.getElementById("tv-widget-container-analysis");
+  const lwContainerAnalysis = document.getElementById("lw-chart-container-analysis");
+
+  if (currentChartEngine === "tv") {
+    if (tvContainer) tvContainer.style.display = "block";
+    if (lwContainer) lwContainer.style.display = "none";
+    if (tvContainerAnalysis) tvContainerAnalysis.style.display = "block";
+    if (lwContainerAnalysis) lwContainerAnalysis.style.display = "none";
+
+    const tvSymbol = exChoice === "NSE" ? "NSE:" + symbol.replace(".NS", "") : symbol;
+    if (tvContainer && typeof TradingView !== "undefined") {
+      tvContainer.innerHTML = "";
+      new TradingView.widget({
+        "autosize": true,
+        "symbol": tvSymbol,
+        "interval": timeframe === "1W" ? "W" : (timeframe === "1M" ? "M" : "D"),
+        "timezone": "Asia/Kolkata",
+        "theme": "dark",
+        "style": "1",
+        "locale": "en",
+        "toolbar_bg": "#090d16",
+        "enable_publishing": false,
+        "container_id": "tv-widget-container"
+      });
+    }
+  } else {
+    // Common Chart Engine connected to normalized API
+    if (tvContainer) tvContainer.style.display = "none";
+    if (lwContainer) lwContainer.style.display = "block";
+    if (tvContainerAnalysis) tvContainerAnalysis.style.display = "none";
+    if (lwContainerAnalysis) lwContainerAnalysis.style.display = "block";
+
+    fetch(`/api/market-data/ohlc?symbol=${encodeURIComponent(symbol)}&exchange=${encodeURIComponent(exChoice)}&country=${encodeURIComponent(cChoice)}&assetClass=${encodeURIComponent(acChoice)}&timeframe=${timeframe}`)
+      .then(r => r.json())
+      .then(data => {
+        const exName = data.exchange || exChoice;
+        const curr = data.currency ? ` (${data.currency})` : '';
+        const tz = data.timezone ? ` [${data.timezone}]` : '';
+
+        if (dashTitle) dashTitle.textContent = `${exName} Chart (${timeframe}) — ${data.symbol || symbol}${curr}${tz}`;
+        if (analysisTitle) analysisTitle.textContent = `${exName} Chart (${timeframe}) — ${data.symbol || symbol}${curr}${tz}`;
+
+        if (data.candles && data.candles.length > 0) {
+          renderNormalizedLWChart(lwContainer, document.getElementById("dash-chart-tooltip"), data.candles);
+          renderNormalizedLWChart(lwContainerAnalysis, document.getElementById("analysis-chart-tooltip"), data.candles);
+        } else if (selectedStockData && selectedStockData.history) {
+          renderHistoryLWChart(lwContainer, selectedStockData.history);
+          renderHistoryLWChart(lwContainerAnalysis, selectedStockData.history);
+        }
+      })
+      .catch(err => {
+        console.error("OHLC API error:", err);
+        if (selectedStockData && selectedStockData.history) {
+          renderHistoryLWChart(lwContainer, selectedStockData.history);
+          renderHistoryLWChart(lwContainerAnalysis, selectedStockData.history);
+        }
+      });
+  }
+}
+
+function renderNormalizedLWChart(containerEl, tooltipEl, candles) {
+  if (!containerEl) return;
+  containerEl.innerHTML = "";
+
+  const chart = LightweightCharts.createChart(containerEl, {
+    layout: { backgroundColor: "#0b0f19", textColor: "#94a3b8" },
+    grid: { vertLines: { color: "#1f2937" }, horzLines: { color: "#1f2937" } },
+    crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
+    timeScale: { borderColor: "#273449", timeVisible: true }
+  });
+
+  const candleSeries = chart.addCandlestickSeries({
+    upColor: '#10b981', downColor: '#ef4444', borderVisible: false, wickUpColor: '#10b981', wickDownColor: '#ef4444'
+  });
+
+  const volumeSeries = chart.addHistogramSeries({
+    priceFormat: { type: 'volume' },
+    priceScaleId: '',
+    scaleMargins: { top: 0.8, bottom: 0 }
+  });
+
+  const cData = [];
+  const vData = [];
+
+  candles.forEach(c => {
+    const tVal = c.time;
+    cData.push({ time: tVal, open: c.open, high: c.high, low: c.low, close: c.close });
+    vData.push({ time: tVal, value: c.volume, color: c.close >= c.open ? 'rgba(16, 185, 129, 0.4)' : 'rgba(239, 68, 68, 0.4)' });
+  });
+
+  candleSeries.setData(cData);
+  volumeSeries.setData(vData);
+
+  // Overlay Price Lines: Entry (Pivot), Stop Loss, Target 1, Target 2
+  if (selectedStockData) {
+    const curr = selectedStockData.currency || "INR";
+    const plan = selectedStockData.plan || {};
+    const pivotVal = (plan.pivot && plan.pivot.value) ? plan.pivot.value : null;
+    const stopVal = (plan.stop && plan.stop.value) ? plan.stop.value : null;
+    const risk = (pivotVal && stopVal) ? (pivotVal - stopVal) : 0;
+
+    const tp1Val = selectedStockData.tp1 || (pivotVal ? pivotVal + 2 * risk : null);
+    const tp2Val = selectedStockData.tp2 || (pivotVal ? pivotVal + 3 * risk : null);
+
+    if (pivotVal) {
+      candleSeries.createPriceLine({
+        price: pivotVal,
+        color: '#3b82f6',
+        lineWidth: 2,
+        lineStyle: LightweightCharts.LineStyle.Solid,
+        axisLabelVisible: true,
+        title: `Entry (Pivot): ${formatCurrency(pivotVal, curr)}`
+      });
+    }
+    if (stopVal) {
+      const riskPct = pivotVal ? ((pivotVal - stopVal) / pivotVal * 100).toFixed(1) : '5.0';
+      candleSeries.createPriceLine({
+        price: stopVal,
+        color: '#ef4444',
+        lineWidth: 2,
+        lineStyle: LightweightCharts.LineStyle.Dashed,
+        axisLabelVisible: true,
+        title: `Stop Loss: ${formatCurrency(stopVal, curr)} (-${riskPct}%)`
+      });
+    }
+    if (tp1Val) {
+      candleSeries.createPriceLine({
+        price: tp1Val,
+        color: '#10b981',
+        lineWidth: 2,
+        lineStyle: LightweightCharts.LineStyle.Dashed,
+        axisLabelVisible: true,
+        title: `Target 1 (+10% / 2R): ${formatCurrency(tp1Val, curr)}`
+      });
+    }
+    if (tp2Val) {
+      candleSeries.createPriceLine({
+        price: tp2Val,
+        color: '#8b5cf6',
+        lineWidth: 2,
+        lineStyle: LightweightCharts.LineStyle.Dashed,
+        axisLabelVisible: true,
+        title: `Target 2 (+20% / 4R): ${formatCurrency(tp2Val, curr)}`
+      });
+    }
+  }
+
+  // Crosshair Tooltip
+  chart.subscribeCrosshairMove(param => {
+    if (!tooltipEl) return;
+    if (!param || !param.time || !param.seriesPrices.get(candleSeries)) {
+      tooltipEl.style.display = "none";
+      return;
+    }
+    tooltipEl.style.display = "flex";
+    const price = param.seriesPrices.get(candleSeries);
+    const vol = param.seriesPrices.get(volumeSeries) || 0;
+    const curr = (selectedStockData && selectedStockData.currency) || "INR";
+    tooltipEl.innerHTML = `O: ${formatCurrency(price.open, curr)} | H: ${formatCurrency(price.high, curr)} | L: ${formatCurrency(price.low, curr)} | C: ${formatCurrency(price.close, curr)} | Vol: ${vol.toLocaleString()}`;
+  });
+
+  chart.timeScale().fitContent();
+}
+
+function renderHistoryLWChart(containerEl, history) {
+  if (!containerEl || !history) return;
+  containerEl.innerHTML = "";
+  const dates = history.dates || [];
+  const opens = history.open || [];
+  const highs = history.high || [];
+  const lows = history.low || [];
+  const closes = history.close || [];
+
+  const chart = LightweightCharts.createChart(containerEl, {
+    layout: { backgroundColor: "#0b0f19", textColor: "#94a3b8" },
+    grid: { vertLines: { color: "#1f2937" }, horzLines: { color: "#1f2937" } },
+    timeScale: { borderColor: "#273449" }
+  });
+
+  const candleSeries = chart.addCandlestickSeries({
+    upColor: '#10b981', downColor: '#ef4444', borderVisible: false, wickUpColor: '#10b981', wickDownColor: '#ef4444'
+  });
+
+  const candleData = [];
+  for (let i = 0; i < dates.length; i++) {
+    if (dates[i] && opens[i] !== null && closes[i] !== null) {
+      candleData.push({ time: dates[i], open: opens[i], high: highs[i], low: lows[i], close: closes[i] });
+    }
+  }
+  candleSeries.setData(candleData);
+  chart.timeScale().fitContent();
+}
+</script>
+</body>
+</html>

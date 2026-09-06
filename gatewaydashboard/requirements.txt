@@ -1,0 +1,12 @@
+# Gateway Dashboard dependencies.
+#
+# Bounded ranges rather than hard == pins: these are the versions this code was
+# written against, but the exact patch releases available on PyPI move quickly
+# and a pin to a release that does not exist is worse than a range. After your
+# first successful install, run `pip freeze > requirements.lock.txt` to capture
+# the exact set that worked on your machine.
+
+yfinance>=0.2.54,<0.3      # market data provider (github.com/ranaroussi/yfinance)
+pandas>=2.2,<3
+numpy>=1.26,<3
+Flask>=3.0,<4              # local dashboard server

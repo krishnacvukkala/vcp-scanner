@@ -1,0 +1,95 @@
+symbol,name,note
+# Starter universe. Two groups: every ticker actually named in the workshop
+# material (so you can eyeball the scanner against setups the course itself
+# showed), plus a large-cap block to give the screener something liquid to chew
+# on. This is a starting point, not the NSE. Run `python fetch_universe.py` to
+# replace it with the full official NSE equity list, or just edit this file.
+# Lines beginning with # are ignored. Symbols are NSE symbols; the ".NS" Yahoo
+# suffix is added for you. Any symbol Yahoo cannot resolve is reported after a
+# scan rather than silently dropped.
+ADANIPOWER,Adani Power,vcp example.pdf p1
+ALEMBICLTD,Alembic,vcp example.pdf p2
+ALKYLAMINE,Alkyl Amines Chemicals,vcp example.pdf p3
+APLAPOLLO,APL Apollo Tubes,vcp example.pdf p4
+ATGL,Adani Total Gas,vcp example.pdf p5
+CHOLAFIN,Cholamandalam Investment,vcp example.pdf p6
+CYBERTECH,Cybertech Systems,vcp example.pdf p7 (5 contractions)
+GPIL,Godawari Power & Ispat,vcp example.pdf p8-9 (daily + weekly)
+GRAVITA,Gravita India,vcp example.pdf p10
+HGS,Hinduja Global Solutions,vcp example.pdf p11
+IIFL,IIFL Finance,vcp example.pdf p12
+JSL,Jindal Stainless,vcp example.pdf p13 + live chart in day 1
+KECL,Kirloskar Electric,vcp example.pdf p14
+LINDEINDIA,Linde India,vcp example.pdf p15
+NAHARSPING,Nahar Spinning Mills,vcp example.pdf p16
+OLECTRA,Olectra Greentech,vcp example.pdf p16b (entry 715 / stop 650)
+PRINCEPIPE,Prince Pipes & Fittings,vcp example.pdf p17
+SAIL,Steel Authority of India,vcp example.pdf p18
+TITAN,Titan Company,vcp example.pdf p19
+DODLA,Dodla Dairy,day 2 live chart (773 level / 710 stop)
+MIDHANI,Mishra Dhatu Nigam,day 2 live chart
+SANDESH,Sandesh,day 2 MarketSmith demo
+PATELENG,Patel Engineering,day 2 MarketSmith demo
+GANESHHOUC,Ganesh Housing,day 2 live chart
+CHEMBOND,Chembond Chemicals,day 2 live chart
+SARVESHWAR,Sarveshwar Foods,seen in the excluded clip
+DIXON,Dixon Technologies,vcp workshop.pdf p12 research-terminal example
+RELIANCE,Reliance Industries,day 1 annual-report demo
+TCS,Tata Consultancy Services,large cap
+HDFCBANK,HDFC Bank,large cap
+ICICIBANK,ICICI Bank,large cap
+INFY,Infosys,large cap
+HINDUNILVR,Hindustan Unilever,large cap
+ITC,ITC,large cap
+SBIN,State Bank of India,large cap
+BHARTIARTL,Bharti Airtel,large cap
+KOTAKBANK,Kotak Mahindra Bank,large cap
+LT,Larsen & Toubro,large cap
+AXISBANK,Axis Bank,large cap
+BAJFINANCE,Bajaj Finance,large cap
+ASIANPAINT,Asian Paints,large cap
+MARUTI,Maruti Suzuki,large cap
+SUNPHARMA,Sun Pharmaceutical,large cap
+ULTRACEMCO,UltraTech Cement,large cap
+NESTLEIND,Nestle India,large cap
+WIPRO,Wipro,large cap
+ONGC,Oil & Natural Gas Corp,large cap
+NTPC,NTPC,large cap
+POWERGRID,Power Grid Corporation,large cap
+TATAMOTORS,Tata Motors,large cap
+TATASTEEL,Tata Steel,large cap
+JSWSTEEL,JSW Steel,large cap
+HCLTECH,HCL Technologies,large cap
+TECHM,Tech Mahindra,large cap
+ADANIENT,Adani Enterprises,large cap
+ADANIPORTS,Adani Ports & SEZ,large cap
+COALINDIA,Coal India,large cap
+GRASIM,Grasim Industries,large cap
+HINDALCO,Hindalco Industries,large cap
+DRREDDY,Dr Reddy's Laboratories,large cap
+CIPLA,Cipla,large cap
+BRITANNIA,Britannia Industries,large cap
+EICHERMOT,Eicher Motors,large cap
+HEROMOTOCO,Hero MotoCorp,large cap
+BAJAJ-AUTO,Bajaj Auto,large cap
+BAJAJFINSV,Bajaj Finserv,large cap
+APOLLOHOSP,Apollo Hospitals,large cap
+INDUSINDBK,IndusInd Bank,large cap
+SBILIFE,SBI Life Insurance,large cap
+HDFCLIFE,HDFC Life Insurance,large cap
+TATACONSUM,Tata Consumer Products,large cap
+BPCL,Bharat Petroleum,large cap
+TRENT,Trent,large cap
+DLF,DLF,large cap
+PIDILITIND,Pidilite Industries,large cap
+SIEMENS,Siemens India,large cap
+HAVELLS,Havells India,large cap
+BEL,Bharat Electronics,large cap
+HAL,Hindustan Aeronautics,large cap
+CUMMINSIND,Cummins India,mid cap
+POLYCAB,Polycab India,mid cap
+PERSISTENT,Persistent Systems,mid cap
+COFORGE,Coforge,mid cap
+KPITTECH,KPIT Technologies,mid cap
+BSE,BSE,mid cap
+CDSL,Central Depository Services,mid cap
