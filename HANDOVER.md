@@ -1,138 +1,319 @@
-# Project Handover Document — Aaroquant AI Trading Dashboard
+# Project Handover — Aaroquant VCP Scanner
 
-This document provides complete context, architecture details, git specifications, and operational instructions for **Claude** (or any succeeding AI pair programmer / engineer) to seamlessly resume work on this repository.
+**Updated:** 2026-09-06, by Claude (Opus 5), for Gemini or any succeeding engineer.
+**Supersedes:** the 2026-09-06 07:31 handover. Everything in that version about the
+Flask/vanilla-JS architecture still holds; the corrections and additions are marked
+below.
 
----
-
-## 1. Git Repository & Deployment Details
-
-- **GitHub Repository**: [https://github.com/krishnacvukkala/vcp-scanner](https://github.com/krishnacvukkala/vcp-scanner)
-- **Remote URL**: `https://github.com/krishnacvukkala/vcp-scanner.git`
-- **Default Branch**: `main` (tracking `origin/main`)
-- **Authentication**: macOS Keychain (`credential.helper=osxkeychain`) under user `krishnacvukkala`.
-- **Working Tree**: Clean. All active code, documentation, and assets are pushed to `main`.
-- **Large File Handling (`.gitignore`)**:
-  - The local workspace contains ~3 GB of raw workshop media files (`.mkv`, `.mp3`, `vcp workshop.pdf`, and `day1_frames/`, `day2_frames/`).
-  - **CRITICAL**: Never remove `.gitignore` exclusions for `*.mkv`, `*.mp3`, `*.pdf`, `*.zip`, or frame directories. Google Drive CloudStorage indexing and GitHub 100MB file limits will reject or freeze git operations if these are tracked.
+**Verification rule used throughout:** every claim here was checked against the actual
+code, a test run, or a live HTTP response. Where a previous document was wrong, the
+correction is called out. Nothing is described as working on the strength of having
+been written.
 
 ---
 
-## 2. Project Overview & Identity
+## 0. Read this first — the state in one paragraph
 
-- **Name**: **Aaroquant — AI Trading & Risk Management Dashboard (VCP Swing Trades)**
-- **Core Methodology**: Volatility Contraction Pattern (VCP) swing trading strategy based on workshop materials (Mark Minervini / David Ryan / Stan Weinstein Stage 2 models).
-- **Branding**: All references to the strategy in user-facing views are branded as **Aaroquant Swing Trades**.
-- **Architecture**:
-  - **Backend**: Lightweight local Flask server (`gatewaydashboard/app.py`) bound to `127.0.0.1:8765`.
-  - **Frontend**: High-performance, single-page application (`gatewaydashboard/static/index.html`) using Vanilla HTML5, modern CSS3 (glassmorphism, curated dark/light palettes), and Vanilla JavaScript with Lightweight Charts and TradingView widgets.
-  - **Data Feeds**: Multi-market Yahoo Finance pipeline (`yfinance`) with exchange-aware ticker resolution, disk caching, and parallel fundamental analysis.
+The hosted dashboard's **Scan button was returning 500**. Root cause found and fixed:
+the cache writer called `mkdir` outside its own `try/except`, and Vercel serves the
+deployment filesystem read-only. Behind that sat a design problem — a 164-symbol scan
+cannot finish inside a serverless request at all — so the scan was moved off the
+request path onto a scheduled job that writes to Supabase, with the dashboard reading
+from Postgres. **16 files are staged in git but NOT committed and NOT pushed.** One
+command finishes it (§2). Supabase itself has not been signed up for yet; that is the
+user's next step and `SUPABASE_SETUP.md` walks it through.
 
 ---
 
-## 3. Directory & File Structure
+## 1. What changed this session
 
-```text
-.
-├── gatewaydashboard/
-│   ├── app.py              # Flask API server (http://127.0.0.1:8765)
-│   ├── vcp_core.py         # VCP contraction math, pivot calculation, & verdict engine
-│   ├── scanner.py          # Multi-market scanner & parallel fundamentals evaluation
-│   ├── instruments.py      # Global instrument catalog (160+ tickers across India, US, UK, EU, JP)
-│   ├── data.py             # Yahoo Finance market data loader, price cache, & ticker mapping
-│   ├── fundamentals.py     # Income statements, key financial ratios, & 12h disk cache
-│   ├── market_data.py      # Real-time OHLCV indicator generation & TradingView feeds
-│   ├── config.py           # Parameters, risk limits, & source/user provenance
-│   ├── universe.csv        # Starter universe of equities
-│   ├── requirements.txt    # Python dependencies
-│   └── static/
-│       └── index.html      # Complete dashboard UI (all 7 views, charts, and Help Guide)
-├── STRATEGY_MASTER.md      # Comprehensive strategy reference & rules derived from workshop
-├── SOURCE_KNOWLEDGE_MAP.md # Mathematical definitions and rule matrices
-├── SOURCE_FILE_INVENTORY.md# Source audit documentation
-├── README.md               # Repository landing page and quickstart
-└── HANDOVER.md             # This document
+### 1.1 The bug that broke Scan (fixed, verified)
+
+`/api/scan` returned HTTP 500 on `aaroquantdashboard.vercel.app` while `/` served
+fine. Confirmed by loading the endpoint live, then isolated in code:
+
+| File | Line | Problem |
+|---|---|---|
+| `gatewaydashboard/data.py` | 115 | `CACHE_PATH.mkdir(...)` sat **outside** the `try/except OSError` immediately below it. Vercel's deployment filesystem is read-only, so the first successful Yahoo download raised `OSError: [Errno 30] Read-only file system` and killed the request. |
+| `gatewaydashboard/fundamentals.py` | 117 | The same unguarded `mkdir` inside `_cache_path()`, which runs on cache **reads** as well as writes. |
+
+Both are now inside guards. `config.py` additionally moves `CACHE_DIR` to
+`/tmp/aaroquant-cache` when `VERCEL` is set, since `/tmp` is the only writable path
+there. Two regression tests cover this (`test_storage_and_readonly.py`), simulating
+Errno 30 rather than using `chmod`, because tests often run as root and root ignores
+permission bits.
+
+### 1.2 The design problem behind it
+
+Fixing the crash alone would only have converted a 500 into a timeout. A full scan is
+10–20s warm and worse cold; Vercel functions cap at 60s. So:
+
+```
+GitHub Actions (scheduled)  ──scans──▶  Supabase  ◀──reads──  Vercel dashboard
+        minutes, free                   Postgres              milliseconds
 ```
 
+The hosted app never scans the universe again. It reads a finished scan. A single
+ticker still scans live, because one symbol fits comfortably inside a request.
+
+This shape was chosen with the user: they picked **GitHub Actions** as the scan writer
+and **"serve from DB + live single-symbol"** as the Scan-button behaviour, over Vercel
+Cron (Hobby allows one run/day, 60s cap) and a Mac-local scheduler (only runs when the
+laptop is awake).
+
+### 1.3 New and changed files (16)
+
+| File | New? | What it does |
+|---|---|---|
+| `gatewaydashboard/store.py` | new | Supabase persistence over the PostgREST endpoint using `requests`. No SDK dependency. |
+| `gatewaydashboard/jobs/run_scan.py` | new | The scheduled writer. `python -m gatewaydashboard.jobs.run_scan` |
+| `gatewaydashboard/jobs/__init__.py` | new | package marker |
+| `gatewaydashboard/tests/test_storage_and_readonly.py` | new | 13 tests. **The repo had no tests before this.** |
+| `.github/workflows/scan.yml` | new | Scheduled scan, 10:45 and 21:45 UTC weekdays, plus manual dispatch |
+| `supabase/schema.sql` | new | Tables, indexes, RLS, a prune helper |
+| `api/index.py` | new | Vercel entry point; re-exports the Flask app |
+| `vercel.json` | new | Build config. **The repo had none** — which is why what was deployed could not be reproduced from source. |
+| `requirements.txt` (root) | new | Vercel's Python runtime reads the root file |
+| `SUPABASE_SETUP.md` | new | Step-by-step signup and wiring |
+| `gatewaydashboard/app.py` | changed | `/api/scan` serves stored runs; new `/api/health` and `/api/scan/history`; OHLC reads the cache first |
+| `gatewaydashboard/config.py` | changed | `/tmp` cache on serverless, Supabase settings, `ON_SERVERLESS`, `STORED_SCAN_STALE_HOURS`, `LIVE_SCAN_MAX_SYMBOLS` |
+| `gatewaydashboard/data.py` | changed | guarded cache write |
+| `gatewaydashboard/fundamentals.py` | changed | guarded cache path |
+| `gatewaydashboard/requirements.txt` | changed | added `requests` |
+| `HANDOVER.md` | changed | this file |
+
+### 1.4 Design decisions worth not undoing
+
+- **`store.latest_scan()` rebuilds the exact payload shape `scanner.scan()` returns.**
+  The dashboard cannot tell a stored scan from a live one, so `index.html` needed no
+  changes and there is one rendering path to keep correct rather than two. It adds only
+  an `is_stored` flag and a `stored` block (age, source, staleness) — never anything
+  that changes a verdict.
+- **`scan_results.record` holds the engine's output verbatim.** The flat columns beside
+  it (`pivot`, `stop`, `close`, `risk_pct`, `contractions` …) exist so the dashboard can
+  filter in SQL. They are derived from that record and are `null` wherever the engine
+  had no value. A test asserts a missing pivot stays missing.
+- **An incomplete or failed run is never served.** `latest_scan()` only reads runs with
+  `status='complete'`, so a job that dies mid-scan shows as `failed` in the table rather
+  than surfacing as "no setups today". Two tests cover this.
+- **A stored scan older than 24h gets a `STALE:` caveat** naming its age, rather than
+  being shown as current.
+- **RLS is on with no policies**, so the public anon key reads nothing. Only the
+  service-role key, used server-side, can touch the tables.
+- **Storage is an enhancement, not a dependency.** With the env vars unset the app
+  behaves exactly as before: live scans, nothing persisted. A test covers that path.
+
 ---
 
-## 4. Key Systems & Recent Enhancements
+## 2. Exactly where things stand — and the one command to finish
 
-### A. Global Multi-Market Support
-- Supports global tickers across **India (NSE)**, **United States (NYSE/NASDAQ)**, **United Kingdom (LSE)**, **Germany (XETRA)**, **Japan (TSE)**, **Hong Kong (HKEX)**, **Australia (ASX)**, and **Canada (TSX)**.
-- `instruments.find_instrument()` automatically resolves exchange suffixes (e.g. `AAPL` without `.NS`, `SAP.DE`, `SHEL.L`, `7203.T`, `RELIANCE.NS`).
-- Displays numbers in local scale: **₹ Crores** for India, **$B / $M** for US, **£B** for UK, **€B** for Europe.
+**16 files are staged. Nothing is committed. Nothing is pushed.**
 
-### B. Strategy Verdicts & Categorization
-- **🟢 Valid Setup (Buy Trigger)**: Passed all technical gates (Stage 2 uptrend, contracting volume, tightening waves) and fundamental checks.
-- **🟡 Watch Near Pivot**: High-quality bases within 3–5% of breakout pivot point.
-- **🟣 Target Hit (Completed)**: Tracks closed winners where price reached Take Profit 1 (2R) or Take Profit 2 (3R).
-- **🔴 Stop Loss Hit**: Automatically categorizes trades where price dropped below Stop Loss.
-- **🔵 Base Forming**: Stocks in sideways resting/consolidation phase.
+```
+A  .github/workflows/scan.yml          M  gatewaydashboard/app.py
+A  SUPABASE_SETUP.md                   M  gatewaydashboard/config.py
+A  api/index.py                        M  gatewaydashboard/data.py
+A  gatewaydashboard/store.py           M  gatewaydashboard/fundamentals.py
+A  gatewaydashboard/jobs/__init__.py   M  gatewaydashboard/requirements.txt
+A  gatewaydashboard/jobs/run_scan.py   M  HANDOVER.md
+A  gatewaydashboard/tests/test_storage_and_readonly.py
+A  requirements.txt   A  supabase/schema.sql   A  vercel.json
+```
 
-### C. "Trades For Today" Interactive Tabs & Filtering
-- Contains 3 dedicated tabs:
-  1. `Active Setups` (Valid Setup & Watch Near Pivot)
-  2. `🔴 Stop Loss Hit` (Disciplined risk management audit)
-  3. `🏆 Target Hit` (Completed winning trades)
-- Search bar and Verdict filter dropdown allow real-time filtering without page reloads.
+`main` is at `457a907`, tracking `origin/main`, which is at the same commit.
 
-### D. High-Speed Market Scan ("Run Scan Now")
-- **Parallel Fundamentals**: Evaluates 20+ candidate stocks concurrently using `concurrent.futures.ThreadPoolExecutor(max_workers=8)` in `scanner.py`.
-- **Disk Caching**: Fundamentals cached to `.cache/fundamentals/*.pkl` with a 12-hour TTL.
-- **Socket Timeout**: Added `timeout=12` in `yf.download()` to prevent hanging network calls.
-- **Interactive UI**: Button displays live rotating spinner (`Scanning...`), disables to prevent duplicate triggers, and shows toast notifications (`toast-info`, `toast-success`).
-- **Performance**: Full 164-stock global scan reduced from **5–6+ minutes** down to **~10–20 seconds**; cached scans return in **<0.5 seconds**.
-
-### E. In-Dashboard "📚 Help & Guide" Menu
-- Dedicated 7th navigation item in the sidebar (`#view-help-guide`).
-- Features a 9-section plain-English guide covering:
-  1. The 5-Step Workflow (`01 SCAN → 02 ANALYZE → 03 RESEARCH → 04 RISK → 05 PLAN`)
-  2. Dashboard Overview & KPI Cards
-  3. Trades For Today & Filter Usage
-  4. Candlestick Charts & Technical Overlays (MA50, MA200, Volume, Pivot, SL, TP)
-  5. Fundamental Health & Key Financials
-  6. Risk Manager & Position Sizing (1% account risk, 2:1 R:R minimum)
-  7. Color Code Guide (Green, Amber, Red, Blue, Purple, Gray)
-  8. Full Trading Glossary (20+ terms including detailed explanation of "Base Forming")
-  9. Global Markets Reference Table
-
----
-
-## 5. How to Run and Verify
+To finish (run in macOS Terminal — the commit message is already written):
 
 ```bash
-# 1. Navigate to gatewaydashboard
-cd gatewaydashboard
-
-# 2. Run the application
-python app.py
-
-# 3. Access in browser
-# Open http://127.0.0.1:8765
+cd "$HOME/Library/CloudStorage/GoogleDrive-krishnacvukkala@gmail.com/My Drive/Antigravity/VCP By TheChayyy"
+git add HANDOVER.md
+git commit -F .git/CLAUDE_COMMIT_MSG.txt && git push
 ```
 
-### API Endpoints
-- `GET /` — Serves `static/index.html`
-- `GET /api/scan?cached=1` — Returns latest scan from memory/disk cache (instant)
-- `GET /api/scan?fundamentals=1&force=1` — Forces fresh market scan and updates cache
-- `GET /api/stock/<symbol>` — Full technical and fundamental scan for a single symbol
-- `GET /api/market-data/ohlc?symbol=X&exchange=Y&timeframe=1D` — Historical candlestick data
-- `GET /api/market-data/instruments` — Instrument list by country/exchange
-- `GET /api/settings` — System parameters and provenance rules
+### Why Claude could not commit it
+
+Claude's shell runs in a Linux VM that sees the Google Drive folder through a
+FileProvider mount. On that mount, `git commit`, `git log` and `git status` die with
+**SIGBUS** — reading existing history out of the packfile via mmap crashes, while
+writing objects and the index works fine (which is why `git add` succeeded). Gemini
+runs on macOS, where git handles this folder normally. This is an environment quirk,
+not repository damage.
+
+### Cleanup Claude could not do
+
+Deleting files is blocked for Claude on this device, so these leftovers remain:
+
+```bash
+rm -f .git/index.lock.stale-from-sigbus .git/index.lock.stale2
+git gc --prune=now          # also clears 15 stray .git/objects/**/tmp_obj_* files
+```
+
+All harmless; `git gc` sweeps them.
 
 ---
 
-## 6. Conventions & Guidelines for Future Edits
+## 3. Remaining setup (the user's next step, not yet done)
 
-1. **Preserve Color Coding & Visual Hierarchy**:
-   - Green: `#16a34a` / `#15803d` / `#22c55e` (Setups, Targets, Wins)
-   - Amber: `#d97706` / `#b45309` (Watch Near Pivot)
-   - Red: `#dc2626` / `#b91c1c` (Stop Loss, Losses, Danger)
-   - Blue: `#2563eb` / `#1d4ed8` / `#3b82f6` (Base Forming, Entry, Accents)
-   - Purple: `#7c3aed` / `#6d28d9` (Completed Targets)
-2. **Never Return Raw `NaN` in JSON**:
-   - `SafeJSONProvider` in `app.py` automatically scrubs `NaN` and `Infinity` into `None` / `null` to prevent browser JSON parse failures. Keep this intact.
-3. **Respect Single-User Loopback**:
-   - The server binds strictly to `127.0.0.1:8765`. Do not expose it to `0.0.0.0` or public tunnels without adding authentication.
-4. **Git Operations**:
-   - When checking status, prefer `git status -uno` or configure `git config status.showUntrackedFiles no` to prevent git from scanning large untracked video frame directories on Google Drive FileProvider.
+Full detail in `SUPABASE_SETUP.md`. In order:
+
+1. Sign up at supabase.com with GitHub; project `aaroquant`, region **Frankfurt**, Free plan.
+2. Paste `supabase/schema.sql` into the SQL Editor and Run. Confirm four tables.
+3. Copy **Project URL** and the **service_role** key from Project Settings → API.
+4. Add both as GitHub repository secrets, named exactly `SUPABASE_URL` and
+   `SUPABASE_SERVICE_ROLE_KEY`.
+5. Actions → **Scheduled VCP scan** → Run workflow (try `limit: 20` first).
+6. Add the same two as Vercel environment variables, then **redeploy** — env vars only
+   apply to builds made after they are set.
+7. Check `https://<app>.vercel.app/api/health`.
+
+**Never put the service-role key in the browser, in `index.html`, in a commit, or in a
+chat message.** It bypasses RLS entirely. The user pasted two GitHub PATs into chat
+during this session (`ghp_vYGeA4…`, `ghp_Dbqwjp7Q…`); both were declined and unused,
+and both should be revoked at github.com/settings/tokens if that has not happened yet.
+
+### Also unverified: is Vercel even connected to this repo?
+
+The repo contained no Vercel config, yet a Flask app is deployed at
+`aaroquantdashboard.vercel.app` under the personal scope
+`krishnas-projects-8f4b9d0d` (not the `vcp-bc-the-chayyy` team — the team-scoped API
+token cannot see it, so Vercel MCP tools return 403/404 for it). Check Settings → Git
+on that project. If it is not connected to `krishnacvukkala/vcp-scanner`, connect it,
+otherwise the push above will not deploy anything.
+
+---
+
+## 4. Verified facts about the codebase
+
+Checked this session by importing the modules and running the app, not read off docs.
+
+- **8 Python modules, 5,753 lines**, plus a 2,676-line `static/index.html`.
+- **Endpoints** (all 200 under a test client): `/`, `/api/scan`, `/api/stock/<symbol>`,
+  `/api/settings`, `/api/market-data/instruments`, `/api/market-data/search`,
+  `/api/market-data/ohlc`, `POST /api/size`, `POST /api/cache/clear`, plus the new
+  `/api/health` and `/api/scan/history`.
+- **7 UI views**: dashboard, trades-today, chart-analysis, stock-research, risk-manager,
+  settings-provenance, help-guide.
+- **Config**: 59 parameters exposed through `/api/settings`, 34 of them USER-owned,
+  13 verdict parameters.
+- **Position sizing is correct** — ₹10,00,000 at 1% with entry 715 / stop 650 returns
+  153 shares and ₹9,945 at risk.
+- **Instrument counts** — *correction to the previous handover*, which claimed "160+
+  tickers in `instruments.py`". The catalog holds **99**; `universe.csv` holds **94**;
+  the ~164 figure comes from merging and de-duplicating the two at scan time.
+- **Tests: 13**, all passing, all added this session. There were none before.
+  `python -m pytest gatewaydashboard/tests/ -q`
+
+---
+
+## 5. Known bugs and open issues
+
+### 5.1 `scanner.py::_enrich_record` fabricates trade numbers (NOT fixed)
+
+Flagged to the user twice; left alone deliberately because they had not decided, and
+because "fix the scan" was the request. **This matters more now that results are
+persisted** — fabricated values are about to be written into a database and served as
+history.
+
+| Line | Problem |
+|---|---|
+| 238 | `rr_ratio = 2.4` is **hard-coded**. The levels actually computed are TP1 = pivot + 2R and TP2 = pivot + 3R, so the "2.4 : 1" the UI renders is not the ratio of the numbers displayed beside it. |
+| 242–246 | When there is **no valid pivot**, it invents one: `pivot = close`, `stop = close × 0.95`, `tp1 = +10%`, `tp2 = +15%`, `rr_ratio = 2.0`. A stock with no VCP structure still gets a full-looking trade plan. |
+| 276 | `win_probability = 73`, a constant. |
+| 255–270 | `confidence_score` is a fixed number per verdict, not a measurement. |
+
+`tp1`, `tp2`, `rr_ratio_fmt` and `ai_signal` are all referenced in `index.html`, so
+these reach the screen. `win_probability`, `confidence_score` and `ai_take` are computed
+but currently unrendered.
+
+This contradicts the principle the rest of the codebase enforces carefully — `config.py`
+tags every parameter SOURCE or USER precisely so an invented number can never read like
+a workshop rule, and `app.py`'s `_scrub` cites §25 for turning NaN into null rather than
+zero. **Recommended fix:** return `None`/`unavailable` when there is no pivot, and
+compute `rr_ratio` from the actual levels.
+
+### 5.2 Environment quirks (not code bugs)
+
+- Git SIGBUSes on the Drive mount from Claude's Linux VM (§2). Fine on macOS.
+- Reading files in that folder via `cat` from the VM fails with "Resource deadlock
+  avoided"; staging them works.
+- Vercel MCP tools cannot see the `aaroquantdashboard` project (personal scope vs team
+  token), so deployment verification has to be done by loading URLs.
+- `.github/workflows/*` is a protected path for remote writes; that file was written
+  through the shell instead.
+
+### 5.3 Not built
+
+No trade logging, no win-rate or return tracking, no backtester, no authentication, no
+broker integration. The dashboard shows untracked metrics as untracked.
+
+---
+
+## 6. Conventions to preserve
+
+From the previous handover and still correct:
+
+1. **Colour coding** — green `#16a34a`/`#22c55e` setups and wins, amber `#d97706` watch,
+   red `#dc2626` stops and losses, blue `#2563eb` base-forming and accents, purple
+   `#7c3aed` completed targets.
+2. **Never return raw `NaN` in JSON** — `SafeJSONProvider` in `app.py` scrubs NaN and
+   Infinity to `null`. Keep it.
+3. **Loopback only for the local server** — `HOST = 127.0.0.1`, no auth. Do not bind
+   `0.0.0.0` or tunnel it. (The Vercel deployment is a separate, public surface with no
+   auth either; it holds no credentials and places no orders.)
+4. **`git status -uno`** in this folder — a full status walks thousands of Drive-backed
+   video frames.
+5. **Never track** `*.mkv`, `*.mp3`, `*.pdf`, `*.zip` or the frame directories.
+
+Added this session:
+
+6. **`vercel.json` must not contain both `builds` and `functions`** — Vercel rejects the
+   combination and the deploy fails in about a second. `maxDuration` goes inside
+   `builds[0].config`.
+7. **The strategy engine decides; everything else displays.** `vcp_core` produces
+   verdicts, `fundamentals` produces flags, and nothing downstream — scanner, store, API
+   or UI — may re-derive them. `store.py` deliberately stores and returns records
+   untouched.
+8. **Do not invent a number the engine did not produce.** See §5.1 for the one place
+   this is currently violated.
+
+---
+
+## 7. Suggested next five steps
+
+1. **Commit and push** (§2), then confirm Vercel is connected to the repo (§3).
+2. **Supabase setup** (§3), ending with a green `/api/health` and a first stored scan.
+3. **Fix `_enrich_record`** (§5.1) before much scan history accumulates with fabricated
+   levels in it.
+4. **Surface freshness in the UI** — the payload now carries `stored.age_hours`,
+   `stored.stale` and `stored.source`; the dashboard does not yet show them, so a user
+   cannot tell a fresh scan from a two-day-old one.
+5. **Wire `/api/scan/history`** into the dashboard so a silently failing scheduled job is
+   visible rather than looking like a quiet market.
+
+---
+
+## 8. Quick reference
+
+```bash
+# Local dashboard
+cd gatewaydashboard && python app.py            # http://127.0.0.1:8765
+
+# Tests
+python -m pytest gatewaydashboard/tests/ -q     # 13 passing
+
+# Scan into Supabase (needs the two env vars)
+python -m gatewaydashboard.jobs.run_scan --source local
+python -m gatewaydashboard.jobs.run_scan --limit 20      # quick check
+python -m gatewaydashboard.jobs.run_scan --dry-run       # writes nothing
+```
+
+| Table | Holds | Written by |
+|---|---|---|
+| `scan_runs` | one row per scan: counts, timing, settings, failures | the scheduled job |
+| `scan_results` | one row per symbol per run + the full engine record as JSON | the scheduled job |
+| `ohlcv_cache` | chart series per symbol and timeframe | the job, and the API on a miss |
+| `fundamentals_cache` | quarterly statements and ratios | the API |
+
+Free tiers throughout: Supabase 500 MB / 5 GB egress, GitHub Actions ~150 of 2,000
+minutes a month, Vercel Hobby. Supabase pauses a free project after 7 idle days — the
+twice-daily scan counts as activity.

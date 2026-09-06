@@ -131,7 +131,8 @@ class _StubPostgrest:
             return respond(inserted)
 
         if method == "PATCH":
-            target = query.get("id", ["eq."])[0].removeprefix("eq.")
+            raw_id = query.get("id", ["eq."])[0]
+            target = raw_id[3:] if raw_id.startswith("eq.") else raw_id
             for row in rows:
                 if row.get("id") == target:
                     row.update(body)
@@ -142,7 +143,8 @@ class _StubPostgrest:
         for field, values in query.items():
             if field in ("select", "order", "limit"):
                 continue
-            wanted = values[0].removeprefix("eq.")
+            v0 = values[0]
+            wanted = v0[3:] if v0.startswith("eq.") else v0
             matched = [r for r in matched if str(r.get(field)) == wanted]
         if "order" in query and matched:
             field = query["order"][0].split(".")[0]
