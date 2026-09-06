@@ -485,6 +485,16 @@ table.data-table tr:hover { background: #f8fafc; cursor: pointer; }
 /* ── Positive / Negative number formatting ── */
 .num-positive { color: #16a34a; font-weight: 600; }
 .num-negative { color: #dc2626; font-weight: 600; }
+
+/* ── Toast Notifications & Button Spinners ── */
+@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+.toast-container { position: fixed; top: 20px; right: 24px; z-index: 99999; display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
+.toast-msg { pointer-events: auto; padding: 12px 18px; border-radius: 10px; font-size: 13px; font-weight: 600; color: #fff; box-shadow: 0 8px 24px rgba(0,0,0,0.18); display: flex; align-items: center; gap: 10px; animation: toastIn 0.3s ease-out; transition: all 0.3s ease; }
+@keyframes toastIn { from { opacity: 0; transform: translateY(-12px); } to { opacity: 1; transform: translateY(0); } }
+.toast-info { background: #1e40af; border: 1px solid #3b82f6; }
+.toast-success { background: #15803d; border: 1px solid #22c55e; }
+.toast-warning { background: #b45309; border: 1px solid #f59e0b; }
+.toast-error { background: #b91c1c; border: 1px solid #ef4444; }
 </style>
 
 </head>
@@ -569,7 +579,9 @@ table.data-table tr:hover { background: #f8fafc; cursor: pointer; }
           <span style="width:6px;height:6px;background:#10b981;border-radius:50%"></span>
           Global Market Provider
         </div>
-        <button onclick="triggerScan(true)" style="background:var(--accent-blue);color:white;border:none;padding:8px 14px;border-radius:8px;font-weight:600;cursor:pointer;font-size:12px">Run Scan Now</button>
+        <button id="btn-run-scan" onclick="triggerScan(true)" style="background:var(--accent-blue);color:white;border:none;padding:8px 16px;border-radius:8px;font-weight:600;cursor:pointer;font-size:12px;display:flex;align-items:center;gap:6px;box-shadow:0 2px 6px rgba(37,99,235,0.25);transition:all 0.2s">
+          <span id="scan-btn-icon">⚡</span> <span id="scan-btn-text">Run Scan Now</span>
+        </button>
       </div>
     </header>
 
@@ -1829,15 +1841,65 @@ function setChartEngine(engine) {
   loadOHLCChart(selectedSymbol, currentTimeframe);
 }
 
-function triggerScan(force = false) {
-  fetchScan(force);
+function showToast(msg, type = "info", duration = 4000) {
+  let container = document.getElementById("toast-container");
+  if (!container) {
+    container = document.createElement("div");
+    container.id = "toast-container";
+    container.className = "toast-container";
+    document.body.appendChild(container);
+  }
+  const toast = document.createElement("div");
+  toast.className = `toast-msg toast-${type}`;
+  toast.innerHTML = msg;
+  container.appendChild(toast);
+  setTimeout(() => {
+    toast.style.opacity = "0";
+    toast.style.transform = "translateY(-10px)";
+    setTimeout(() => toast.remove(), 350);
+  }, duration);
 }
 
-function fetchScan(force = false) {
+function triggerScan(force = false) {
+  const btn = document.getElementById("btn-run-scan");
+  const icon = document.getElementById("scan-btn-icon");
+  const text = document.getElementById("scan-btn-text");
+  if (btn) {
+    btn.disabled = true;
+    btn.style.opacity = "0.75";
+    btn.style.cursor = "not-allowed";
+  }
+  if (icon) icon.innerHTML = '<span style="display:inline-block;width:12px;height:12px;border:2px solid #fff;border-top-color:transparent;border-radius:50%;animation:spin 0.8s linear infinite"></span>';
+  if (text) text.textContent = "Scanning...";
+
+  showToast("🔍 Running market scan... evaluating VCP setups & fundamentals", "info", 5000);
+
+  fetchScan(force, () => {
+    if (btn) {
+      btn.disabled = false;
+      btn.style.opacity = "1";
+      btn.style.cursor = "pointer";
+    }
+    if (icon) icon.textContent = "⚡";
+    if (text) text.textContent = "Run Scan Now";
+  });
+}
+
+function fetchScan(force = false, onComplete = null) {
   const url = `/api/scan?fundamentals=1&country=${encodeURIComponent(currentCountry)}&exchange=${encodeURIComponent(currentExchange)}&assetClass=${encodeURIComponent(currentAssetClass)}` + (force ? "&force=1" : "&cached=1");
   fetch(url)
-    .then(r => r.json())
+    .then(r => {
+      if (!r.ok && r.status !== 409) {
+        throw new Error(`HTTP error ${r.status}`);
+      }
+      return r.json();
+    })
     .then(data => {
+      if (data.error && !data.results) {
+        showToast(`⚠️ ${data.error}`, "warning");
+        if (onComplete) onComplete(data.error, null);
+        return;
+      }
       scanData = data;
       renderDashboard();
       if (data.results && data.results.length > 0) {
@@ -1846,8 +1908,19 @@ function fetchScan(force = false) {
           selectStock(data.results[0].symbol);
         }
       }
+      if (data.is_scanning) {
+        showToast("ℹ️ Background scan currently in progress. Showing latest market data.", "info", 4000);
+      } else if (force) {
+        const cnt = data.scanned || (data.results ? data.results.length : 0);
+        showToast(`✅ Scan Complete! ${cnt} instruments evaluated.`, "success", 4000);
+      }
+      if (onComplete) onComplete(null, data);
     })
-    .catch(err => console.error("Scan fetch error:", err));
+    .catch(err => {
+      console.error("Scan fetch error:", err);
+      showToast("Scan encountered an error. Please try again.", "error");
+      if (onComplete) onComplete(err, null);
+    });
 }
 
 function fetchSettings() {

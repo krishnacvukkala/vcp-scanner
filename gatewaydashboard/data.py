@@ -173,6 +173,7 @@ def _download_batch(symbols: list[str]) -> dict[str, pd.DataFrame]:
             progress=False,
             group_by="ticker",
             threads=True,
+            timeout=12,
         )
     except Exception:
         return out

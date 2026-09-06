@@ -115,8 +115,12 @@ def api_scan():
         return jsonify(_last_scan)
 
     if not _scan_lock.acquire(blocking=False):
-        return jsonify({"error": "A scan is already running. Yahoo rate-limits "
-                                 "bulk requests, so they are run one at a time."}), 409
+        if _last_scan:
+            res = dict(_last_scan)
+            res["is_scanning"] = True
+            res["message"] = "A scan is currently running. Returning latest data."
+            return jsonify(res)
+        return jsonify({"error": "A scan is already running. Please wait a moment...", "is_scanning": True}), 409
     try:
         result = scanner.scan(
             symbols=symbols,

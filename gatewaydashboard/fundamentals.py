@@ -106,17 +106,63 @@ def _flag(fid: str, label: str, triggered, detail: str, threshold: str) -> dict:
             "detail": detail, "threshold": threshold}
 
 
-def fetch(symbol: str, exchange: str | None = None) -> dict:
+import pickle
+from datetime import datetime, timezone
+from pathlib import Path
+
+FUND_CACHE_DIR = data.CACHE_PATH / "fundamentals"
+
+
+def _fund_cache_file(symbol: str) -> Path:
+    FUND_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    clean = "".join(c for c in symbol if c.isalnum() or c in "._-")
+    return FUND_CACHE_DIR / f"{clean}.pkl"
+
+
+def _read_fund_cache(symbol: str, ttl_hours: float = 12.0) -> dict | None:
+    path = _fund_cache_file(symbol)
+    if not path.exists():
+        return None
+    try:
+        mtime = datetime.fromtimestamp(path.stat().st_mtime, tz=timezone.utc)
+        age = (datetime.now(tz=timezone.utc) - mtime).total_seconds() / 3600.0
+        if age > ttl_hours:
+            return None
+        with open(path, "rb") as fh:
+            return pickle.load(fh)
+    except Exception:
+        return None
+
+
+def _write_fund_cache(symbol: str, res: dict) -> None:
+    try:
+        path = _fund_cache_file(symbol)
+        with open(path, "wb") as fh:
+            pickle.dump(res, fh)
+    except Exception:
+        pass
+
+
+def fetch(symbol: str, exchange: str | None = None, force: bool = False) -> dict:
     """Pull quarterly statements and key ratios for one symbol.
 
-    Never raises. A failure comes back as {"available": False, "reason": ...}
+    Never raises. Uses disk cache unless force=True.
+    A failure comes back as {"available": False, "reason": ...}
     using the §25 DATA_UNAVAILABLE vocabulary.
     """
+    if not force:
+        cached = _read_fund_cache(symbol)
+        if cached is not None:
+            return cached
+
     try:
         import yfinance as yf
         ytarget = data.to_yahoo(symbol, exchange)
         ticker = yf.Ticker(ytarget)
-        quarterly = ticker.quarterly_income_stmt
+        try:
+            quarterly = ticker.quarterly_income_stmt
+        except Exception:
+            quarterly = None
         try:
             info = ticker.get_info() or {}
         except Exception:
@@ -126,30 +172,35 @@ def fetch(symbol: str, exchange: str | None = None) -> dict:
         except Exception:
             raw_news = []
     except Exception as exc:
-        return {"available": False,
-                "reason": f"DATA_UNAVAILABLE: Yahoo fundamentals lookup failed "
-                          f"for {data.to_yahoo(symbol, exchange)} ({type(exc).__name__})"}
+        res = {"available": False,
+               "reason": f"DATA_UNAVAILABLE: Yahoo fundamentals lookup failed "
+                         f"for {data.to_yahoo(symbol, exchange)} ({type(exc).__name__})"}
+        return res
 
     if quarterly is None or getattr(quarterly, "empty", True):
-        return {"available": False,
-                "reason": "DATA_UNAVAILABLE: Yahoo returned no quarterly income "
-                          f"statement for {data.to_yahoo(symbol, exchange)}",
-                "info": info,
-                "news": raw_news}
-    return {"available": True, "quarterly": quarterly, "info": info, "news": raw_news}
+        res = {"available": False,
+               "reason": "DATA_UNAVAILABLE: Yahoo returned no quarterly income "
+                         f"statement for {data.to_yahoo(symbol, exchange)}",
+               "info": info,
+               "news": raw_news}
+    else:
+        res = {"available": True, "quarterly": quarterly, "info": info, "news": raw_news}
+
+    _write_fund_cache(symbol, res)
+    return res
 
 
 # ---------------------------------------------------------------------------
 # §22 FUNDAMENTALS_SUPPORTIVE and §19 EXCLUSION_CONDITIONS
 # ---------------------------------------------------------------------------
 
-def assess(symbol: str, raw: dict | None = None, exchange: str | None = None, currency: str | None = None) -> dict:
+def assess(symbol: str, raw: dict | None = None, exchange: str | None = None, currency: str | None = None, force: bool = False) -> dict:
     if not config.FUNDAMENTALS_ENABLED:
         return {"enabled": False,
                 "note": "fundamentals are switched off in config.py; the price "
                         "verdict is unaffected either way (p10)"}
 
-    raw = raw or fetch(symbol, exchange)
+    raw = raw or fetch(symbol, exchange, force=force)
     if not raw.get("available"):
         return {"enabled": True, "available": False,
                 "reason": raw.get("reason", "DATA_UNAVAILABLE"),

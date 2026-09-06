@@ -126,11 +126,27 @@ def scan(
         _enrich_record(record)
         records.append(record)
 
-    interesting = [r for r in records
-                   if r["verdict"] in ("valid_setup", "watch")]
-    if with_fundamentals:
+    interesting = [r for r in records if r["verdict"] in ("valid_setup", "watch")]
+    if with_fundamentals and interesting:
+        import concurrent.futures
+
+        def _eval_fund(r):
+            try:
+                ass = fundamentals.assess(
+                    r["symbol"],
+                    exchange=r.get("exchange"),
+                    currency=r.get("currency"),
+                    force=force
+                )
+                return r["symbol"], ass
+            except Exception:
+                return r["symbol"], {"enabled": True, "available": False, "reason": "ERROR"}
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
+            fund_map = dict(executor.map(_eval_fund, interesting))
+
         for record in interesting:
-            assessment = fundamentals.assess(record["symbol"], exchange=record.get("exchange"), currency=record.get("currency"))
+            assessment = fund_map.get(record["symbol"], {})
             record["fundamentals"] = assessment
             if assessment.get("available"):
                 vcp_core.apply_exclusions(record, assessment.get("blocking"))
