@@ -196,11 +196,17 @@ if ON_SERVERLESS:
 #
 # With neither set, the app runs exactly as before: scans happen live and
 # nothing is persisted. Storage is an enhancement, not a dependency.
-_raw_url = _os.environ.get("SUPABASE_URL", "").strip().rstrip("/")
+_raw_url = (_os.environ.get("SUPABASE_URL") or _os.environ.get("UPABASE_URL") or "").strip().rstrip("/")
 if _raw_url and not _raw_url.startswith(("http://", "https://")):
     _raw_url = f"https://{_raw_url}"
+if _raw_url.endswith("/rest/v1"):
+    _raw_url = _raw_url[:-len("/rest/v1")].rstrip("/")
 SUPABASE_URL = _raw_url
-SUPABASE_SERVICE_ROLE_KEY = _os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "").strip()
+SUPABASE_SERVICE_ROLE_KEY = (
+    _os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
+    or _os.environ.get("UPABASE_SERVICE_ROLE_KEY")
+    or ""
+).strip()
 SUPABASE_ENABLED = bool(SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY)
 
 # How stale a stored scan may be before the UI is told to treat it as old.
