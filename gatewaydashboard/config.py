@@ -196,7 +196,10 @@ if ON_SERVERLESS:
 #
 # With neither set, the app runs exactly as before: scans happen live and
 # nothing is persisted. Storage is an enhancement, not a dependency.
-SUPABASE_URL = _os.environ.get("SUPABASE_URL", "").strip().rstrip("/")
+_raw_url = _os.environ.get("SUPABASE_URL", "").strip().rstrip("/")
+if _raw_url and not _raw_url.startswith(("http://", "https://")):
+    _raw_url = f"https://{_raw_url}"
+SUPABASE_URL = _raw_url
 SUPABASE_SERVICE_ROLE_KEY = _os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "").strip()
 SUPABASE_ENABLED = bool(SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY)
 
