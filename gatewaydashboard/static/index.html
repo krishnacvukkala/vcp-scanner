@@ -1017,11 +1017,33 @@ table.data-table tr:hover { background: #f8fafc; cursor: pointer; }
   .stat-val { font-size: 22px !important; }
   .stat-title { font-size: 10px !important; }
 
-  /* ── All other grids: single column ── */
-  .dashboard-grid    { grid-template-columns: 1fr !important; gap: 12px !important; }
-  .trade-plan-layout { grid-template-columns: 1fr !important; gap: 12px !important; }
-  .research-grid     { grid-template-columns: 1fr !important; gap: 12px !important; }
-  #categorized-markets-grid { grid-template-columns: 1fr !important; }
+  /* ── All other grids: single column & strict flex layout ── */
+  .dashboard-grid,
+  .trade-plan-layout,
+  .research-grid {
+    display: flex !important;
+    flex-direction: column !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    gap: 12px !important;
+  }
+  .dashboard-grid > div,
+  .trade-plan-layout > div,
+  .research-grid > div {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    overflow: hidden !important;
+  }
+  #categorized-markets-grid {
+    display: flex !important;
+    flex-direction: column !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    gap: 12px !important;
+  }
   div[style*="grid-template-columns"] { grid-template-columns: 1fr !important; }
 
   /* Cards */
@@ -1032,8 +1054,52 @@ table.data-table tr:hover { background: #f8fafc; cursor: pointer; }
     box-sizing: border-box !important;
     overflow: hidden !important;
     width: 100% !important;
+    max-width: 100% !important;
   }
   .section-title { font-size: 14px !important; }
+
+  /* Param rows inside Trade Plan cards */
+  .param-row {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    padding: 10px 12px !important;
+    box-sizing: border-box !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    margin-bottom: 8px !important;
+  }
+  .param-label {
+    font-size: 12px !important;
+    white-space: nowrap !important;
+    flex-shrink: 0 !important;
+  }
+  .param-val {
+    font-size: 13px !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+
+  /* Table styling on mobile */
+  .table-container {
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    display: block !important;
+  }
+  table.data-table {
+    width: 100% !important;
+    min-width: 320px !important;
+    font-size: 11px !important;
+    table-layout: auto !important;
+  }
+  table.data-table th,
+  table.data-table td {
+    padding: 8px 6px !important;
+    white-space: nowrap !important;
+  }
 
   /* Chart */
   .chart-viewport { height: 260px !important; }
@@ -1052,9 +1118,6 @@ table.data-table tr:hover { background: #f8fafc; cursor: pointer; }
   .categorized-stock-list { max-height: 380px !important; }
   .subnav-tabs { overflow-x: auto; -webkit-overflow-scrolling: touch; }
   .subnav-tab { padding: 8px 14px !important; font-size: 12px !important; }
-  .table-container { overflow-x: auto !important; }
-  table.data-table { font-size: 11px !important; }
-  table.data-table td, table.data-table th { padding: 8px 6px !important; }
 }
 </style>
 
@@ -2592,6 +2655,8 @@ function triggerScan(force = false) {
   const btn = document.getElementById("btn-run-scan");
   const icon = document.getElementById("scan-btn-icon");
   const text = document.getElementById("scan-btn-text");
+  const mobBtn = document.querySelector(".mob-scan-btn");
+
   if (btn) {
     btn.disabled = true;
     btn.style.opacity = "0.75";
@@ -2599,6 +2664,12 @@ function triggerScan(force = false) {
   }
   if (icon) icon.innerHTML = '<span style="display:inline-block;width:12px;height:12px;border:2px solid #fff;border-top-color:transparent;border-radius:50%;animation:spin 0.8s linear infinite"></span>';
   if (text) text.textContent = "Scanning...";
+
+  if (mobBtn) {
+    mobBtn.disabled = true;
+    mobBtn.style.opacity = "0.75";
+    mobBtn.innerHTML = '<span style="display:inline-block;width:14px;height:14px;border:2px solid #fff;border-top-color:transparent;border-radius:50%;animation:spin 0.8s linear infinite"></span>';
+  }
 
   showToast("🔍 Running market scan... evaluating VCP setups & fundamentals", "info", 5000);
 
@@ -2610,6 +2681,12 @@ function triggerScan(force = false) {
     }
     if (icon) icon.textContent = "⚡";
     if (text) text.textContent = "Run Scan Now";
+
+    if (mobBtn) {
+      mobBtn.disabled = false;
+      mobBtn.style.opacity = "1";
+      mobBtn.innerHTML = "⚡";
+    }
   });
 }
 
@@ -2624,7 +2701,7 @@ function fetchScan(force = false, onComplete = null) {
       return r.json();
     })
     .then(data => {
-      if (data.error && !data.results) {
+      if (data.error && (!data.results || data.results.length === 0)) {
         if (data.error === "NO_STORED_SCAN") {
           showToast("⏳ No scan stored yet. Run the GitHub Actions workflow or trigger a live scan.", "warning", 7000);
         } else {
@@ -2643,7 +2720,7 @@ function fetchScan(force = false, onComplete = null) {
       }
       if (data.is_scanning) {
         showToast("ℹ️ Background scan currently in progress. Showing latest market data.", "info", 4000);
-      } else if (force) {
+      } else if (force || data.refreshed_from_store) {
         const cnt = data.scanned || (data.results ? data.results.length : 0);
         showToast(`✅ Scan Complete! ${cnt} instruments evaluated.`, "success", 4000);
       }
@@ -2963,6 +3040,16 @@ function switchCategorizedMarketTab(countryTab, element) {
   if (element) {
     element.parentElement.querySelectorAll(".subnav-tab").forEach(el => el.classList.remove("active"));
     element.classList.add("active");
+  }
+  // If scanData was filtered by a global country choice and user clicked a different country tab, reset filter to ALL
+  if (currentCountry !== "ALL" && countryTab !== currentCountry && countryTab !== "FAVORITES") {
+    currentCountry = "ALL";
+    const fc = document.getElementById("filter-country");
+    if (fc) fc.value = "ALL";
+    const mfc = document.getElementById("mob-filter-country");
+    if (mfc) mfc.value = "ALL";
+    fetchScan(false, () => renderCategorizedMarkets());
+    return;
   }
   renderCategorizedMarkets();
 }

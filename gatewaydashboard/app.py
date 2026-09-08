@@ -130,14 +130,19 @@ def api_scan():
     live_symbol_request = bool(symbols) and len(symbols) <= config.LIVE_SCAN_MAX_SYMBOLS
 
     # 2. Stored scan.
-    if not live_symbol_request and store.enabled() and not _flag("force"):
-        try:
-            stored = store.latest_scan(country, exchange, asset_class)
-        except store.StoreError as exc:
-            app.logger.warning("Supabase read failed: %s", exc)
-            stored = None
-        if stored:
-            return jsonify(stored)
+    if not live_symbol_request and store.enabled():
+        # On serverless, a full live universe scan cannot finish inside the request budget,
+        # so serving the latest complete stored scan is always the correct behavior.
+        if not _flag("force") or config.ON_SERVERLESS:
+            try:
+                stored = store.latest_scan(country, exchange, asset_class)
+            except store.StoreError as exc:
+                app.logger.warning("Supabase read failed: %s", exc)
+                stored = None
+            if stored:
+                if _flag("force"):
+                    stored["refreshed_from_store"] = True
+                return jsonify(stored)
 
     if _flag("cached") and _last_scan and unfiltered:
         return jsonify(_last_scan)
