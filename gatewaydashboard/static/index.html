@@ -75,6 +75,24 @@ body {
 
 .app-container { display: flex; width: 100vw; height: 100vh; overflow: hidden; }
 
+/* ── Sidebar toggle button (hamburger) ── */
+.sidebar-toggle-btn {
+  background: transparent;
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 8px;
+  color: #94a3b8;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  font-size: 18px;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+.sidebar-toggle-btn:hover { background: rgba(255,255,255,0.08); color: #e2e8f0; }
+
 /* ── Sidebar (stays dark as reference) ── */
 .sidebar {
   width: 240px;
@@ -84,6 +102,39 @@ body {
   flex-direction: column;
   border-right: 1px solid #1f2937;
   flex-shrink: 0;
+  transition: width 0.25s cubic-bezier(0.4,0,0.2,1), transform 0.25s cubic-bezier(0.4,0,0.2,1);
+  overflow: hidden;
+  z-index: 200;
+  position: relative;
+}
+
+/* ── Collapsed sidebar: icon-only on desktop ── */
+.sidebar.collapsed {
+  width: 60px;
+}
+.sidebar.collapsed .sidebar-logo span,
+.sidebar.collapsed .nav-item span + *,
+.sidebar.collapsed .bot-card {
+  display: none;
+}
+.sidebar.collapsed .sidebar-logo { padding: 16px; justify-content: center; }
+.sidebar.collapsed .nav-list { padding: 10px 6px; }
+.sidebar.collapsed .nav-item {
+  justify-content: center;
+  padding: 11px;
+  gap: 0;
+  font-size: 0;
+}
+.sidebar.collapsed .nav-item span:first-child { font-size: 18px; }
+
+/* ── Mobile overlay ── */
+.sidebar-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.55);
+  z-index: 199;
+  backdrop-filter: blur(2px);
 }
 .sidebar-logo {
   padding: 20px;
@@ -201,6 +252,75 @@ body {
 
 /* ── Dashboard Stats Grid ── */
 .stats-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px; margin-bottom: 22px; }
+
+/* ── Responsive Media Queries ── */
+@media (max-width: 1100px) {
+  .stats-grid { grid-template-columns: repeat(3, 1fr); }
+  .dashboard-grid { grid-template-columns: 1fr; }
+  .trade-plan-layout { grid-template-columns: 1fr 1fr; }
+  .research-grid { grid-template-columns: 1fr; }
+  .help-grid { grid-template-columns: 1fr !important; }
+  .help-grid-3 { grid-template-columns: 1fr 1fr !important; }
+  .help-toc { grid-template-columns: 1fr 1fr !important; }
+}
+
+@media (max-width: 768px) {
+  /* Sidebar: full-width overlay on mobile */
+  .sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 100%;
+    width: 240px;
+    transform: translateX(-100%);
+    z-index: 200;
+  }
+  .sidebar.mobile-open {
+    transform: translateX(0);
+  }
+  .sidebar-overlay.active { display: block; }
+  .sidebar.collapsed { width: 240px; transform: translateX(-100%); }
+  .sidebar.collapsed .sidebar-logo span,
+  .sidebar.collapsed .nav-item span + *,
+  .sidebar.collapsed .bot-card { display: unset; }
+  .sidebar.collapsed .sidebar-logo { padding: 20px; justify-content: flex-start; }
+  .sidebar.collapsed .nav-list { padding: 10px 12px; }
+  .sidebar.collapsed .nav-item { justify-content: flex-start; padding: 11px 14px; gap: 12px; font-size: 13.5px; }
+  .sidebar.collapsed .nav-item span:first-child { font-size: unset; }
+
+  .stats-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .dashboard-grid { grid-template-columns: 1fr; }
+  .trade-plan-layout { grid-template-columns: 1fr; }
+  .research-grid { grid-template-columns: 1fr; }
+  .research-header { flex-direction: column; align-items: flex-start; gap: 12px; }
+  .stock-info-main { flex-wrap: wrap; }
+  .stock-price-lg { text-align: left; }
+  .header-bar { padding: 0 12px; }
+  .process-flow { gap: 8px; }
+  .pf-step span { display: none; }
+  .content-area { padding: 14px; }
+  .global-filter-bar { padding: 8px 12px; gap: 8px; }
+  #global-search-input { width: 100% !important; }
+  .help-grid { grid-template-columns: 1fr !important; }
+  .help-grid-3 { grid-template-columns: 1fr !important; }
+  .help-toc { grid-template-columns: 1fr 1fr !important; }
+  .chart-viewport { height: 320px; }
+  .rr-diagram { height: auto; }
+  .fin-bars-container { height: 160px; }
+  .stat-val { font-size: 20px; }
+}
+
+@media (max-width: 480px) {
+  .stats-grid { grid-template-columns: 1fr 1fr; gap: 8px; }
+  .stat-card { padding: 12px; }
+  .stat-val { font-size: 18px; }
+  .header-bar { padding: 0 10px; }
+  .pf-step { display: none; }
+  #btn-run-scan span:last-child { display: none; }
+  .content-area { padding: 10px; }
+  .card-box { padding: 14px; }
+  .help-toc { grid-template-columns: 1fr !important; }
+}
 .stat-card {
   background: var(--bg-card);
   border: 1px solid var(--border-card);
@@ -550,10 +670,13 @@ table.data-table tr:hover { background: #f8fafc; cursor: pointer; }
 </head>
 <body>
 
+<!-- Mobile overlay -->
+<div class="sidebar-overlay" id="sidebar-overlay" onclick="toggleSidebar()"></div>
+
 <div class="app-container">
 
   <!-- SIDEBAR -->
-  <aside class="sidebar">
+  <aside class="sidebar" id="sidebar">
     <div class="sidebar-logo">
       <div class="logo-icon">A</div>
       <span>Aaroquant</span>
@@ -624,7 +747,8 @@ table.data-table tr:hover { background: #f8fafc; cursor: pointer; }
         </div>
       </div>
 
-      <div class="header-right">
+      <div style="display:flex;align-items:center;gap:10px">
+        <button class="sidebar-toggle-btn" onclick="toggleSidebar()" title="Toggle sidebar" id="sidebar-toggle-btn">☰</button>
         <div class="status-pill" id="freshness-pill" onclick="openScanHistoryModal()" style="cursor:pointer" title="Click to inspect scan run history & freshness">
           <span id="freshness-dot" style="width:6px;height:6px;background:#10b981;border-radius:50%"></span>
           <span id="freshness-text">Live Scan</span>
@@ -1851,6 +1975,27 @@ function selectGlobalInstrument(symbol, exchange, country, assetClass) {
   loadOHLCChart(symbol, currentTimeframe, exchange, country, assetClass);
 }
 
+// ── Sidebar toggle ──────────────────────────────────────────────────────────
+const _sidebarMQ = window.matchMedia('(max-width: 768px)');
+
+function toggleSidebar() {
+  const sidebar = document.getElementById('sidebar');
+  const overlay = document.getElementById('sidebar-overlay');
+  const btn = document.getElementById('sidebar-toggle-btn');
+
+  if (_sidebarMQ.matches) {
+    // Mobile: slide-in / slide-out with overlay
+    const open = sidebar.classList.toggle('mobile-open');
+    overlay.classList.toggle('active', open);
+    btn.textContent = open ? '✕' : '☰';
+  } else {
+    // Desktop: icon-only collapse
+    const collapsed = sidebar.classList.toggle('collapsed');
+    btn.textContent = collapsed ? '▶' : '☰';
+  }
+}
+
+// Collapse sidebar on small screens when navigating
 function switchNav(viewId, element) {
   document.querySelectorAll(".nav-item").forEach(el => el.classList.remove("active"));
   if (element) element.classList.add("active");
@@ -1858,6 +2003,16 @@ function switchNav(viewId, element) {
   document.querySelectorAll(".view-panel").forEach(el => el.classList.remove("active"));
   const target = document.getElementById("view-" + viewId);
   if (target) target.classList.add("active");
+
+  // Auto-close mobile sidebar after nav click
+  if (_sidebarMQ.matches) {
+    const sidebar = document.getElementById('sidebar');
+    const overlay = document.getElementById('sidebar-overlay');
+    const btn = document.getElementById('sidebar-toggle-btn');
+    sidebar.classList.remove('mobile-open');
+    overlay.classList.remove('active');
+    btn.textContent = '☰';
+  }
 
   if (viewId === "chart-analysis" || viewId === "dashboard") {
     loadOHLCChart(selectedSymbol, currentTimeframe);
