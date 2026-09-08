@@ -253,6 +253,63 @@ body {
 /* ── Dashboard Stats Grid ── */
 .stats-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px; margin-bottom: 22px; }
 
+/* ── Filter bar ── */
+.global-filter-bar {
+  background: var(--bg-card);
+  border-bottom: 1px solid var(--border-card);
+  padding: 10px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+}
+.filter-controls {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.filter-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.filter-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.filter-select {
+  background: var(--bg-card-subtle);
+  color: var(--text-primary);
+  border: 1px solid var(--border-card);
+  padding: 6px 10px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  outline: none;
+  cursor: pointer;
+  max-width: 180px;
+}
+.search-wrapper {
+  position: relative;
+  width: 280px;
+  flex-shrink: 0;
+}
+.search-wrapper input {
+  width: 100%;
+  background: var(--bg-card-subtle);
+  color: var(--text-primary);
+  border: 1px solid var(--border-card);
+  padding: 7px 14px;
+  border-radius: 8px;
+  font-size: 12px;
+  outline: none;
+}
+
 /* ── Responsive Media Queries ── */
 @media (max-width: 1100px) {
   .stats-grid { grid-template-columns: repeat(3, 1fr); }
@@ -262,9 +319,14 @@ body {
   .help-grid { grid-template-columns: 1fr !important; }
   .help-grid-3 { grid-template-columns: 1fr 1fr !important; }
   .help-toc { grid-template-columns: 1fr 1fr !important; }
+  .search-wrapper { width: 220px; }
 }
 
 @media (max-width: 768px) {
+  /* Prevent horizontal overflow */
+  .main-wrapper { min-width: 0; overflow-x: hidden; }
+  .content-area { min-width: 0; overflow-x: hidden; }
+
   /* Sidebar: full-width overlay on mobile */
   .sidebar {
     position: fixed;
@@ -275,9 +337,7 @@ body {
     transform: translateX(-100%);
     z-index: 200;
   }
-  .sidebar.mobile-open {
-    transform: translateX(0);
-  }
+  .sidebar.mobile-open { transform: translateX(0); }
   .sidebar-overlay.active { display: block; }
   .sidebar.collapsed { width: 240px; transform: translateX(-100%); }
   .sidebar.collapsed .sidebar-logo span,
@@ -288,26 +348,57 @@ body {
   .sidebar.collapsed .nav-item { justify-content: flex-start; padding: 11px 14px; gap: 12px; font-size: 13.5px; }
   .sidebar.collapsed .nav-item span:first-child { font-size: unset; }
 
+  /* Stats */
   .stats-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .stat-val { font-size: 20px; }
+
+  /* Grids */
   .dashboard-grid { grid-template-columns: 1fr; }
   .trade-plan-layout { grid-template-columns: 1fr; }
   .research-grid { grid-template-columns: 1fr; }
   .research-header { flex-direction: column; align-items: flex-start; gap: 12px; }
   .stock-info-main { flex-wrap: wrap; }
   .stock-price-lg { text-align: left; }
+
+  /* Header bar */
   .header-bar { padding: 0 12px; }
-  .process-flow { gap: 8px; }
+  .process-flow { gap: 6px; }
   .pf-step span { display: none; }
-  .content-area { padding: 14px; }
-  .global-filter-bar { padding: 8px 12px; gap: 8px; }
-  #global-search-input { width: 100% !important; }
+  .pf-arrow { display: none; }
+
+  /* Filter bar: stack vertically */
+  .global-filter-bar {
+    padding: 10px 12px;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+  .filter-controls {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .filter-group { flex-direction: row; align-items: center; gap: 4px; }
+  .filter-select { flex: 1; max-width: 100%; min-width: 0; font-size: 11px; padding: 5px 8px; }
+  .filter-label { font-size: 11px; min-width: 56px; }
+  .search-wrapper { width: 100%; }
+
+  /* Content */
+  .content-area { padding: 12px; }
+  .card-box { padding: 14px; margin-bottom: 14px; }
+
+  /* Charts */
+  .chart-viewport { height: 300px; }
+  .rr-diagram { height: auto; }
+  .fin-bars-container { height: 160px; }
+
+  /* Help */
   .help-grid { grid-template-columns: 1fr !important; }
   .help-grid-3 { grid-template-columns: 1fr !important; }
   .help-toc { grid-template-columns: 1fr 1fr !important; }
-  .chart-viewport { height: 320px; }
-  .rr-diagram { height: auto; }
-  .fin-bars-container { height: 160px; }
-  .stat-val { font-size: 20px; }
+
+  /* Inline grids inside cards */
+  [style*="grid-template-columns:1fr 1fr"] { grid-template-columns: 1fr !important; }
 }
 
 @media (max-width: 480px) {
@@ -316,10 +407,13 @@ body {
   .stat-val { font-size: 18px; }
   .header-bar { padding: 0 10px; }
   .pf-step { display: none; }
+  .pf-arrow { display: none; }
   #btn-run-scan span:last-child { display: none; }
   .content-area { padding: 10px; }
-  .card-box { padding: 14px; }
+  .card-box { padding: 12px; }
   .help-toc { grid-template-columns: 1fr !important; }
+  .filter-controls { grid-template-columns: 1fr; }
+  .status-pill span:last-child { display: none; }
 }
 .stat-card {
   background: var(--bg-card);
@@ -760,11 +854,11 @@ table.data-table tr:hover { background: #f8fafc; cursor: pointer; }
     </header>
 
     <!-- GLOBAL MARKET FILTER BAR -->
-    <div class="global-filter-bar" style="background:var(--bg-card);border-bottom:1px solid var(--border-card);padding:10px 24px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap">
-      <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
-        <div style="display:flex;align-items:center;gap:6px">
-          <span style="font-size:12px;font-weight:700;color:var(--text-muted)">Country:</span>
-          <select id="filter-country" onchange="onCountryChange(this.value)" style="background:var(--bg-card-subtle);color:var(--text-primary);border:1px solid var(--border-card);padding:6px 12px;border-radius:8px;font-size:12px;font-weight:600;outline:none;cursor:pointer">
+    <div class="global-filter-bar">
+      <div class="filter-controls">
+        <div class="filter-group">
+          <span class="filter-label">Country:</span>
+          <select id="filter-country" class="filter-select" onchange="onCountryChange(this.value)">
             <option value="ALL">ALL (Global)</option>
             <option value="India">India</option>
             <option value="United States">United States</option>
@@ -777,16 +871,16 @@ table.data-table tr:hover { background: #f8fafc; cursor: pointer; }
           </select>
         </div>
 
-        <div style="display:flex;align-items:center;gap:6px">
-          <span style="font-size:12px;font-weight:700;color:var(--text-muted)">Exchange:</span>
-          <select id="filter-exchange" onchange="onExchangeChange(this.value)" style="background:var(--bg-card-subtle);color:var(--text-primary);border:1px solid var(--border-card);padding:6px 12px;border-radius:8px;font-size:12px;font-weight:600;outline:none;cursor:pointer">
-            <option value="ALL">ALL Exchanges</option>
+        <div class="filter-group">
+          <span class="filter-label">Exchange:</span>
+          <select id="filter-exchange" class="filter-select" onchange="onExchangeChange(this.value)">
+            <option value="ALL">ALL — All Global Exchanges</option>
           </select>
         </div>
 
-        <div style="display:flex;align-items:center;gap:6px">
-          <span style="font-size:12px;font-weight:700;color:var(--text-muted)">Asset Class:</span>
-          <select id="filter-asset-class" onchange="onAssetClassChange(this.value)" style="background:var(--bg-card-subtle);color:var(--text-primary);border:1px solid var(--border-card);padding:6px 12px;border-radius:8px;font-size:12px;font-weight:600;outline:none;cursor:pointer">
+        <div class="filter-group">
+          <span class="filter-label">Asset Class:</span>
+          <select id="filter-asset-class" class="filter-select" onchange="onAssetClassChange(this.value)">
             <option value="ALL">ALL Asset Classes</option>
             <option value="EQUITY">Equities</option>
             <option value="ETF">ETFs</option>
@@ -799,8 +893,8 @@ table.data-table tr:hover { background: #f8fafc; cursor: pointer; }
       </div>
 
       <!-- Search Input with Auto-Suggest -->
-      <div style="position:relative;width:300px">
-        <input type="text" id="global-search-input" placeholder="🔍 Search Symbol (AAPL, RELIANCE, ES=F)..." oninput="onGlobalSearch(this.value)" style="width:100%;background:var(--bg-card-subtle);color:var(--text-primary);border:1px solid var(--border-card);padding:7px 14px;border-radius:8px;font-size:12px;outline:none">
+      <div class="search-wrapper">
+        <input type="text" id="global-search-input" placeholder="🔍 Search Symbol (AAPL, RELIANCE, ES=F)..." oninput="onGlobalSearch(this.value)">
         <div id="search-suggest-dropdown" style="display:none;position:absolute;top:38px;left:0;right:0;background:var(--bg-card);border:1px solid var(--border-card);border-radius:8px;max-height:260px;overflow-y:auto;z-index:100;box-shadow:0 10px 25px rgba(0,0,0,0.5)"></div>
       </div>
     </div>
