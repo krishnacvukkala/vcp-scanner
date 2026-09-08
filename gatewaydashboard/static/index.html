@@ -1949,14 +1949,19 @@ function fetchScan(force = false, onComplete = null) {
   const url = `/api/scan?fundamentals=1&country=${encodeURIComponent(currentCountry)}&exchange=${encodeURIComponent(currentExchange)}&assetClass=${encodeURIComponent(currentAssetClass)}` + (force ? "&force=1" : "&cached=1");
   fetch(url)
     .then(r => {
-      if (!r.ok && r.status !== 409) {
+      // 409 = scan already running (pass through), 503 = no stored scan yet (pass through for graceful message)
+      if (!r.ok && r.status !== 409 && r.status !== 503) {
         throw new Error(`HTTP error ${r.status}`);
       }
       return r.json();
     })
     .then(data => {
       if (data.error && !data.results) {
-        showToast(`⚠️ ${data.error}`, "warning");
+        if (data.error === "NO_STORED_SCAN") {
+          showToast("⏳ No scan stored yet. Run the GitHub Actions workflow or trigger a live scan.", "warning", 7000);
+        } else {
+          showToast(`⚠️ ${data.error}`, "warning");
+        }
         if (onComplete) onComplete(data.error, null);
         return;
       }
