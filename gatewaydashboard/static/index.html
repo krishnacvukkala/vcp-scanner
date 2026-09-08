@@ -495,6 +495,56 @@ table.data-table tr:hover { background: #f8fafc; cursor: pointer; }
 .toast-success { background: #15803d; border: 1px solid #22c55e; }
 .toast-warning { background: #b45309; border: 1px solid #f59e0b; }
 .toast-error { background: #b91c1c; border: 1px solid #ef4444; }
+
+/* ── Categorized Stock List (Fixed Size & Slim Custom Scrollbar) ── */
+.categorized-stock-list {
+  max-height: 440px;
+  overflow-y: auto;
+  padding-right: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.categorized-stock-list::-webkit-scrollbar {
+  width: 6px;
+}
+.categorized-stock-list::-webkit-scrollbar-track {
+  background: var(--bg-card-subtle);
+  border-radius: 4px;
+}
+.categorized-stock-list::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+.categorized-stock-list::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* ── Favorite Star Button ── */
+.fav-btn {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 3px 6px;
+  font-size: 16px;
+  line-height: 1;
+  border-radius: 6px;
+  transition: transform 0.15s ease, color 0.15s ease, text-shadow 0.15s ease;
+  color: #94a3b8;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  user-select: none;
+}
+.fav-btn:hover {
+  transform: scale(1.22);
+  color: #f59e0b;
+}
+.fav-btn.is-fav {
+  color: #f59e0b;
+  text-shadow: 0 0 10px rgba(245, 158, 11, 0.5);
+}
 </style>
 
 </head>
@@ -679,6 +729,9 @@ table.data-table tr:hover { background: #f8fafc; cursor: pointer; }
           <!-- Category Tabs -->
           <div class="subnav-tabs" style="margin-bottom:16px;border-bottom:1px solid var(--border-card);overflow-x:auto;padding-bottom:6px;display:flex;gap:6px">
             <button class="subnav-tab active" onclick="switchCategorizedMarketTab('ALL', this)">ALL Markets</button>
+            <button class="subnav-tab" onclick="switchCategorizedMarketTab('FAVORITES', this)" id="tab-fav-markets" style="display:inline-flex;align-items:center;gap:6px" title="View all tracked favorite stocks">
+              ⭐ Favorites <span id="fav-count-pill" style="background:#fef3c7;color:#b45309;font-size:11px;font-weight:700;padding:1px 6px;border-radius:10px;display:none">0</span>
+            </button>
             <button class="subnav-tab" onclick="switchCategorizedMarketTab('United States', this)">🇺🇸 United States</button>
             <button class="subnav-tab" onclick="switchCategorizedMarketTab('India', this)">🇮🇳 India</button>
             <button class="subnav-tab" onclick="switchCategorizedMarketTab('Germany', this)">🇩🇪 Germany</button>
@@ -926,7 +979,10 @@ table.data-table tr:hover { background: #f8fafc; cursor: pointer; }
           <div class="stock-info-main">
             <div class="stock-logo-lg" id="res-logo">AP</div>
             <div>
-              <div class="stock-title" id="res-title">APLAPOLLO — APL Apollo Tubes</div>
+              <div style="display:flex;align-items:center;gap:8px">
+                <div class="stock-title" id="res-title">APLAPOLLO — APL Apollo Tubes</div>
+                <button type="button" class="fav-btn" id="res-fav-btn" onclick="toggleFavoriteStock(selectedSymbol, event)" title="Mark as favorite for tracking" style="font-size:20px">☆</button>
+              </div>
               <div class="stock-subtitle" id="res-sub">NSE: APLAPOLLO | Sector: Basic Materials</div>
             </div>
           </div>
@@ -1686,6 +1742,7 @@ function formatCurrency(val, currencyCode = "INR", decimals = 2) {
 
 document.addEventListener("DOMContentLoaded", () => {
   initGlobalFilters();
+  updateFavoritesBadges();
   fetchScan();
 });
 
@@ -2080,25 +2137,73 @@ function fetchScanHistory() {
     });
 }
 
-function renderDashboard() {
-  if (!scanData) return;
-  
-  const scannedCnt = scanData.scanned != null ? scanData.scanned : (scanData.results ? scanData.results.length : 0);
-  const setupsCnt = (scanData.counts && scanData.counts.valid_setup != null) ? scanData.counts.valid_setup : 0;
-  const watchCnt = (scanData.counts && scanData.counts.watch != null) ? scanData.counts.watch : 0;
+const FAV_STORAGE_KEY = "aaroquant_fav_stocks";
 
-  document.getElementById("stat-scanned").textContent = scannedCnt;
-  document.getElementById("stat-setups").textContent = setupsCnt;
-  document.getElementById("stat-watch").textContent = watchCnt;
+function getFavoriteStocks() {
+  try {
+    const raw = localStorage.getItem(FAV_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch (e) {
+    return [];
+  }
+}
 
-  updateFreshnessUI();
+function isStockFavorite(symbol) {
+  if (!symbol) return false;
+  const favs = getFavoriteStocks();
+  return favs.includes(symbol.toUpperCase());
+}
 
-  const results = scanData.results || [];
+function toggleFavoriteStock(symbol, event) {
+  if (event) {
+    event.stopPropagation();
+    event.preventDefault();
+  }
+  if (!symbol) return;
+  const sym = symbol.toUpperCase();
+  let favs = getFavoriteStocks();
+  const idx = favs.indexOf(sym);
+  const willBeFav = (idx === -1);
+  if (willBeFav) {
+    favs.push(sym);
+  } else {
+    favs.splice(idx, 1);
+  }
+  try {
+    localStorage.setItem(FAV_STORAGE_KEY, JSON.stringify(favs));
+  } catch (e) {
+    console.error("Failed to save favorite:", e);
+  }
+  updateFavoritesBadges();
+  renderCategorizedMarkets();
+  renderTopSetupsTable();
+  renderTradesTable();
+  const resFavBtn = document.getElementById("res-fav-btn");
+  if (resFavBtn && selectedSymbol && selectedSymbol.toUpperCase() === sym) {
+    resFavBtn.className = `fav-btn ${willBeFav ? 'is-fav' : ''}`;
+    resFavBtn.textContent = willBeFav ? '★' : '☆';
+    resFavBtn.title = willBeFav ? 'Remove from favorites' : 'Mark as favorite for tracking';
+  }
+  if (typeof showToast === "function") {
+    showToast(`${sym} ${willBeFav ? 'added to favorites ★' : 'removed from favorites'}`, willBeFav ? 'success' : 'info');
+  }
+}
 
-  // Populate Dashboard Top Setups Table
+function updateFavoritesBadges() {
+  const count = getFavoriteStocks().length;
+  const pill = document.getElementById("fav-count-pill");
+  if (pill) {
+    pill.textContent = count;
+    pill.style.display = count > 0 ? "inline-flex" : "none";
+  }
+}
+
+function renderTopSetupsTable() {
   const dashTbody = document.getElementById("dash-setups-tbody");
+  if (!dashTbody || !scanData) return;
   dashTbody.innerHTML = "";
 
+  const results = scanData.results || [];
   results.slice(0, 6).forEach(r => {
     const tr = document.createElement("tr");
     tr.onclick = () => selectStock(r.symbol);
@@ -2116,10 +2221,12 @@ function renderDashboard() {
     } else if (signal.includes("Structure")) {
       badgeClass = "badge-blue";
     }
+    const isFav = isStockFavorite(r.symbol);
 
     tr.innerHTML = `
       <td>
-        <div class="ticker-badge">
+        <div class="ticker-badge" style="display:flex;align-items:center;gap:6px">
+          <button type="button" class="fav-btn ${isFav ? 'is-fav' : ''}" onclick="toggleFavoriteStock('${r.symbol}', event)" title="${isFav ? 'Remove from favorites' : 'Mark as favorite for tracking'}">${isFav ? '★' : '☆'}</button>
           <div class="t-icon">${r.symbol.substring(0, 2)}</div>
           <div>
             <div style="font-weight:700">${r.symbol}</div>
@@ -2133,7 +2240,22 @@ function renderDashboard() {
     `;
     dashTbody.appendChild(tr);
   });
+}
 
+function renderDashboard() {
+  if (!scanData) return;
+  
+  const scannedCnt = scanData.scanned != null ? scanData.scanned : (scanData.results ? scanData.results.length : 0);
+  const setupsCnt = (scanData.counts && scanData.counts.valid_setup != null) ? scanData.counts.valid_setup : 0;
+  const watchCnt = (scanData.counts && scanData.counts.watch != null) ? scanData.counts.watch : 0;
+
+  document.getElementById("stat-scanned").textContent = scannedCnt;
+  document.getElementById("stat-setups").textContent = setupsCnt;
+  document.getElementById("stat-watch").textContent = watchCnt;
+
+  updateFreshnessUI();
+  updateFavoritesBadges();
+  renderTopSetupsTable();
   renderTradesTable();
   renderCategorizedMarkets();
 }
@@ -2178,10 +2300,30 @@ function renderCategorizedMarkets() {
   container.innerHTML = "";
 
   const results = scanData.results || [];
-  const filtered = results.filter(r => {
-    if (currentCategorizedCountryTab === "ALL") return true;
-    return (r.country || "").toUpperCase() === currentCategorizedCountryTab.toUpperCase();
-  });
+  let filtered = [];
+
+  if (currentCategorizedCountryTab === "FAVORITES") {
+    filtered = results.filter(r => isStockFavorite(r.symbol));
+    if (filtered.length === 0) {
+      container.innerHTML = `
+        <div style="grid-column:1/-1;background:var(--bg-card);border:1px dashed var(--border-card);border-radius:14px;padding:48px 24px;text-align:center;">
+          <div style="font-size:36px;margin-bottom:10px">⭐</div>
+          <div style="font-size:16px;font-weight:700;color:var(--text-primary);margin-bottom:6px">No Favorited Stocks Yet</div>
+          <div style="font-size:13px;color:var(--text-secondary);max-width:440px;margin:0 auto 16px;line-height:1.4">
+            Click the star icon (<span style="color:#94a3b8;font-size:16px">☆</span>) on any stock card or table row across the scanner to track it in your favorites list.
+          </div>
+          <button type="button" class="btn btn-outline" style="font-size:12px;padding:6px 14px" onclick="switchCategorizedMarketTab('ALL', document.querySelector('.subnav-tab'))">
+            Browse All Scanned Markets →
+          </button>
+        </div>
+      `;
+      return;
+    }
+  } else if (currentCategorizedCountryTab === "ALL") {
+    filtered = results;
+  } else {
+    filtered = results.filter(r => (r.country || "").toUpperCase() === currentCategorizedCountryTab.toUpperCase());
+  }
 
   if (filtered.length === 0) {
     container.innerHTML = `<div style="grid-column:1/-1;padding:24px;text-align:center;color:var(--text-muted)">No scanned instruments matching ${currentCategorizedCountryTab} category</div>`;
@@ -2190,11 +2332,11 @@ function renderCategorizedMarkets() {
 
   // Group by verdict
   const groups = {
-    "valid_setup":  { title: "🎯 Valid Long Setups (Buy Triggers)",          badge: "badge-success", color: "#15803d", items: [] },
-    "watch":        { title: "👀 Watchlist (Near Pivot)",                      badge: "badge-warning", color: "#b45309", items: [] },
-    "target_hit":   { title: "🏆 Completed Targets (Done)",                    badge: "badge-purple",  color: "#6d28d9", items: [] },
-    "stop_loss_hit":{ title: "🔴 Stop Loss Hit (Closed — Review)",              badge: "badge-danger",  color: "#b91c1c", items: [] },
-    "structure_only":{ title: "📈 Aaroquant Swing Base Forming",               badge: "badge-blue",   color: "#1d4ed8", items: [] }
+    "valid_setup":   { title: "🎯 Valid Long Setups (Buy Triggers)",          badge: "badge-success", color: "#15803d", items: [] },
+    "watch":         { title: "👀 Watchlist (Near Pivot)",                      badge: "badge-warning", color: "#b45309", items: [] },
+    "target_hit":    { title: "🏆 Completed Targets (Done)",                    badge: "badge-purple",  color: "#6d28d9", items: [] },
+    "stop_loss_hit": { title: "🔴 Stop Loss Hit (Closed — Review)",              badge: "badge-danger",  color: "#b91c1c", items: [] },
+    "structure_only":{ title: "📈 Aaroquant Swing Base Forming",               badge: "badge-blue",    color: "#1d4ed8", items: [] }
   };
 
   filtered.forEach(r => {
@@ -2223,7 +2365,7 @@ function renderCategorizedMarkets() {
     const displayItems = (hasMore && !isExpanded) ? grp.items.slice(0, PREVIEW_LIMIT) : grp.items;
 
     const box = document.createElement("div");
-    box.style.cssText = "background:var(--bg-card-subtle);border-radius:12px;padding:14px;border:1px solid var(--border-card);display:flex;flex-direction:column;gap:10px";
+    box.style.cssText = "background:var(--bg-card-subtle);border-radius:12px;padding:14px;border:1px solid var(--border-card);display:flex;flex-direction:column;gap:10px;box-shadow:var(--shadow-card);";
     
     box.innerHTML = `
       <div style="display:flex;align-items:center;justify-content:space-between;padding-bottom:8px;border-bottom:1px solid var(--border-card)">
@@ -2232,12 +2374,14 @@ function renderCategorizedMarkets() {
           ${hasMore ? `onclick="toggleCategorizedGroup('${key}')"` : ''} 
           class="badge ${grp.badge}" 
           style="${hasMore ? 'cursor:pointer;' : ''}border:none;outline:none;font-weight:700;padding:3px 8px;border-radius:12px;display:inline-flex;align-items:center;gap:4px;font-family:inherit;" 
-          title="${hasMore ? (isExpanded ? 'Click to show less' : 'Click to view all ' + grp.items.length + ' stocks') : ''}">
+          title="${hasMore ? (isExpanded ? 'Click to show preview' : 'Click to view all ' + grp.items.length + ' scrollable stocks') : ''}">
           ${grp.items.length} stocks ${hasMore ? (isExpanded ? '▲' : '▼') : ''}
         </button>
       </div>
-      <div style="display:flex;flex-direction:column;gap:8px">
+
+      <div class="categorized-stock-list">
         ${displayItems.map(item => {
+          const isFav = isStockFavorite(item.symbol);
           const curr = item.currency || "INR";
           const closeVal = item.close ? item.close.value : 0;
           const closeFmt = formatCurrency(closeVal, curr);
@@ -2246,14 +2390,19 @@ function renderCategorizedMarkets() {
           const dist = (plan.distance_to_pivot_pct && plan.distance_to_pivot_pct.value !== null) ? `${plan.distance_to_pivot_pct.value > 0 ? '+' : ''}${plan.distance_to_pivot_pct.value.toFixed(1)}%` : "N/A";
           
           return `
-            <div onclick="selectStock('${item.symbol}'); switchNav('chart-analysis', document.querySelectorAll('.nav-item')[2]);" style="padding:10px;background:var(--bg-card);border:1px solid var(--border-card);border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:space-between" onmouseover="this.style.borderColor='var(--accent-blue)'" onmouseout="this.style.borderColor='var(--border-card)'">
-              <div>
-                <div style="display:flex;align-items:center;gap:6px">
-                  <span style="font-weight:700;font-size:13px;color:var(--text-primary)">${item.symbol}</span>
-                  <span style="font-size:10px;color:var(--text-muted)">(${item.exchange || 'NSE'})</span>
+            <div onclick="selectStock('${item.symbol}'); switchNav('chart-analysis', document.querySelectorAll('.nav-item')[2]);" style="padding:10px;background:var(--bg-card);border:1px solid var(--border-card);border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;transition:all 0.15s ease;" onmouseover="this.style.borderColor='var(--accent-blue)'" onmouseout="this.style.borderColor='var(--border-card)'">
+              <div style="display:flex;align-items:center;gap:8px">
+                <button type="button" class="fav-btn ${isFav ? 'is-fav' : ''}" onclick="toggleFavoriteStock('${item.symbol}', event)" title="${isFav ? 'Remove from favorites' : 'Mark as favorite for tracking'}">
+                  ${isFav ? '★' : '☆'}
+                </button>
+                <div>
+                  <div style="display:flex;align-items:center;gap:6px">
+                    <span style="font-weight:700;font-size:13px;color:var(--text-primary)">${item.symbol}</span>
+                    <span style="font-size:10px;color:var(--text-muted)">(${item.exchange || 'NSE'})</span>
+                  </div>
+                  <div style="font-size:11px;color:var(--text-secondary);margin-top:2px">${item.name || item.symbol}</div>
+                  <div style="font-size:10px;color:var(--text-muted);margin-top:2px">${waves} • Dist: <span style="color:${dist.startsWith('+')?'var(--accent-green)':'var(--accent-red)'}">${dist}</span></div>
                 </div>
-                <div style="font-size:11px;color:var(--text-secondary);margin-top:2px">${item.name || item.symbol}</div>
-                <div style="font-size:10px;color:var(--text-muted);margin-top:2px">${waves} • Dist: <span style="color:${dist.startsWith('+')?'var(--accent-green)':'var(--accent-red)'}">${dist}</span></div>
               </div>
               <div style="text-align:right">
                 <div style="font-family:var(--font-mono);font-weight:700;font-size:13px;color:var(--text-primary)">${closeFmt}</div>
@@ -2263,11 +2412,12 @@ function renderCategorizedMarkets() {
           `;
         }).join("")}
       </div>
+
       ${hasMore ? `
-        <button type="button" onclick="toggleCategorizedGroup('${key}')" style="margin-top:4px;padding:9px 12px;background:var(--bg-card);color:var(--text-primary);border:1px solid var(--border-card);border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;transition:all 0.15s ease;" onmouseover="this.style.borderColor='var(--accent-blue)';this.style.color='var(--accent-blue)'" onmouseout="this.style.borderColor='var(--border-card)';this.style.color='var(--text-primary)'">
+        <button type="button" onclick="toggleCategorizedGroup('${key}')" style="margin-top:auto;padding:8px 12px;background:var(--bg-card);color:var(--text-primary);border:1px solid var(--border-card);border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;transition:all 0.15s ease;" onmouseover="this.style.borderColor='var(--accent-blue)';this.style.color='var(--accent-blue)'" onmouseout="this.style.borderColor='var(--border-card)';this.style.color='var(--text-primary)'">
           ${isExpanded 
-            ? `<span>Show less (first ${PREVIEW_LIMIT}) ▲</span>` 
-            : `<span>View all ${grp.items.length} stocks (+${grp.items.length - PREVIEW_LIMIT} more) ▼</span>`}
+            ? `<span>Show preview (first ${PREVIEW_LIMIT}) ▴</span>` 
+            : `<span>View all ${grp.items.length} stocks (scrollable) ▾</span>`}
         </button>
       ` : ''}
     `;
@@ -2371,9 +2521,11 @@ function renderTradesTable() {
     if (stopFmt)  extraInfo += ` <span style="font-size:10px;color:#dc2626">SL ${stopFmt}</span>`;
     if (tp1Fmt)   extraInfo += ` <span style="font-size:10px;color:#15803d">TP1 ${tp1Fmt}</span>`;
 
+    const isFav = isStockFavorite(r.symbol);
     tr.innerHTML = `
       <td>
-        <div class="ticker-badge">
+        <div class="ticker-badge" style="display:flex;align-items:center;gap:6px">
+          <button type="button" class="fav-btn ${isFav ? 'is-fav' : ''}" onclick="toggleFavoriteStock('${r.symbol}', event)" title="${isFav ? 'Remove from favorites' : 'Mark as favorite for tracking'}">${isFav ? '★' : '☆'}</button>
           <div class="t-icon">${r.symbol.substring(0, 2)}</div>
           <div>
             <div style="font-weight:700">${r.symbol} <span style="font-size:10px;color:var(--text-muted);font-weight:500">(${r.exchange || 'NSE'})</span></div>
@@ -2530,6 +2682,13 @@ function updateStockUI() {
   // Stock Research View Header & Cards
   document.getElementById("res-logo").textContent = d.symbol.substring(0, 2);
   document.getElementById("res-title").textContent = `${d.symbol} — ${d.name || d.symbol}`;
+  const isFav = isStockFavorite(d.symbol);
+  const resFavBtn = document.getElementById("res-fav-btn");
+  if (resFavBtn) {
+    resFavBtn.className = `fav-btn ${isFav ? 'is-fav' : ''}`;
+    resFavBtn.textContent = isFav ? '★' : '☆';
+    resFavBtn.title = isFav ? 'Remove from favorites' : 'Mark as favorite for tracking';
+  }
   document.getElementById("res-sub").textContent = `${d.exchange || 'NSE'}: ${d.symbol} | Country: ${d.country || 'India'}`;
   document.getElementById("res-price").textContent = formatCurrency(closeVal, curr);
   document.getElementById("res-mcap").textContent = res.market_cap_fmt || "N/A";
