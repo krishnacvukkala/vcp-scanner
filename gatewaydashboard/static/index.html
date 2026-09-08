@@ -2156,6 +2156,12 @@ function isStopLossHit(r) {
 }
 
 let currentCategorizedCountryTab = "ALL";
+let categorizedExpandedGroups = {};
+
+function toggleCategorizedGroup(key) {
+  categorizedExpandedGroups[key] = !categorizedExpandedGroups[key];
+  renderCategorizedMarkets();
+}
 
 function switchCategorizedMarketTab(countryTab, element) {
   currentCategorizedCountryTab = countryTab;
@@ -2206,9 +2212,15 @@ function renderCategorizedMarkets() {
     }
   });
 
+  const PREVIEW_LIMIT = 8;
+
   Object.keys(groups).forEach(key => {
     const grp = groups[key];
     if (grp.items.length === 0) return;
+
+    const isExpanded = !!categorizedExpandedGroups[key];
+    const hasMore = grp.items.length > PREVIEW_LIMIT;
+    const displayItems = (hasMore && !isExpanded) ? grp.items.slice(0, PREVIEW_LIMIT) : grp.items;
 
     const box = document.createElement("div");
     box.style.cssText = "background:var(--bg-card-subtle);border-radius:12px;padding:14px;border:1px solid var(--border-card);display:flex;flex-direction:column;gap:10px";
@@ -2216,10 +2228,16 @@ function renderCategorizedMarkets() {
     box.innerHTML = `
       <div style="display:flex;align-items:center;justify-content:space-between;padding-bottom:8px;border-bottom:1px solid var(--border-card)">
         <span style="font-weight:700;font-size:13px;color:${grp.color}">${grp.title}</span>
-        <span class="badge ${grp.badge}">${grp.items.length} stocks</span>
+        <button type="button" 
+          ${hasMore ? `onclick="toggleCategorizedGroup('${key}')"` : ''} 
+          class="badge ${grp.badge}" 
+          style="${hasMore ? 'cursor:pointer;' : ''}border:none;outline:none;font-weight:700;padding:3px 8px;border-radius:12px;display:inline-flex;align-items:center;gap:4px;font-family:inherit;" 
+          title="${hasMore ? (isExpanded ? 'Click to show less' : 'Click to view all ' + grp.items.length + ' stocks') : ''}">
+          ${grp.items.length} stocks ${hasMore ? (isExpanded ? '▲' : '▼') : ''}
+        </button>
       </div>
       <div style="display:flex;flex-direction:column;gap:8px">
-        ${grp.items.slice(0, 8).map(item => {
+        ${displayItems.map(item => {
           const curr = item.currency || "INR";
           const closeVal = item.close ? item.close.value : 0;
           const closeFmt = formatCurrency(closeVal, curr);
@@ -2245,6 +2263,13 @@ function renderCategorizedMarkets() {
           `;
         }).join("")}
       </div>
+      ${hasMore ? `
+        <button type="button" onclick="toggleCategorizedGroup('${key}')" style="margin-top:4px;padding:9px 12px;background:var(--bg-card);color:var(--text-primary);border:1px solid var(--border-card);border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;transition:all 0.15s ease;" onmouseover="this.style.borderColor='var(--accent-blue)';this.style.color='var(--accent-blue)'" onmouseout="this.style.borderColor='var(--border-card)';this.style.color='var(--text-primary)'">
+          ${isExpanded 
+            ? `<span>Show less (first ${PREVIEW_LIMIT}) ▲</span>` 
+            : `<span>View all ${grp.items.length} stocks (+${grp.items.length - PREVIEW_LIMIT} more) ▼</span>`}
+        </button>
+      ` : ''}
     `;
     container.appendChild(box);
   });
